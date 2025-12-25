@@ -19,79 +19,54 @@
 
 ---
 
-## 一、REST API接口设计
+## 一、REST/WS 接口设计（对齐服务器实现）
 
-### 1.1 API基础信息
+### 1.1 API 基础信息
 
-**服务器地址**：配置化（从配置文件读取）
-```
-http://api.ktv.example.com
-或
-https://api.ktv.example.com
-```
+- **Base URL**：`https://mc.ktv.com.cn`（从配置或编译常量读取）
+- **公共查询参数**：`company`（渠道号）、`app_name`（区分设备）、`platform`（android 版本）、`vn`（版本号），token/license 视接口携带
+- **协议**：HTTP(S) GET/POST/DELETE + JSON；WebSocket `wss://mc.ktv.com.cn/ws/{license}`
+- **MVP 取舍**：WebSocket 保留；日志上传 `/karaoke_sdk/log/upload` **暂缓**（非 MVP）
 
-**API格式**：REST风格
-- GET：获取数据
-- POST：提交数据
-- 响应格式：JSON
+### 1.2 已有服务器接口映射
 
-### 1.2 API接口列表
+**认证 / Licence / Token / 配置**
+- `GET /karaoke_v3/lic?company&app_name`
+- `GET /karaoke_sdk/vod_token_by_macid?license`
+- `GET /karaoke_sdk/vod_token`
+- `GET /karaoke_sdk/vod_conf?platform&token&company&app_name&vn`
+- `GET /karaoke_sdk/vod_update?platform&token&vn&license&company&app_name`
+- `GET /karaoke_v3/mac_key/check?key&macid&company&app_name`
+- `GET /karaoke_yiban/token?yiban_status&custId&macid&company&app_name`
+- `GET /karaoke_sdk/t/yinjixie?license&company&app_name&macid&yinjixie&expireData`
 
-#### 获取歌曲列表
-```
-GET /api/songs?page=1&size=20&category=流行
-响应：JSON数组
-[
-  {
-    "song_id": "12345",
-    "song_name": "歌曲名",
-    "artist": "歌手名",
-    "m3u8_url": "http://...",
-    "is_hd": true,
-    "duration": 240
-  },
-  ...
-]
-```
+**播放 / 点歌 / 点赞**
+- `POST /karaoke_sdk/t/plist/set?token=...`（点歌/播放队列）
+- `POST /karaoke_sdk/t/like/set?option=0|1|2&token=...`（点赞/取消）
 
-#### 搜索歌曲
-```
-GET /api/search?keyword=歌曲名&type=song
-或
-GET /api/search?keyword=歌手名&type=artist
-响应：JSON数组（同歌曲列表格式）
-```
+**歌曲 / 歌手 / 模块**
+- `GET /kcloud/getmusics?token&page&size&word&language&company&app_name`
+- `GET /apollo/search/actorsong?token&page&size&key&unionid&actorid&company&app_name`
+- `GET /apollo/module/songlist?token&page&size&id&unionid&company&app_name`
+- `GET /vodc/song/list?token&p&tp&size&type&openid&unionid&company&app_name`
+- `GET /vodc/usersong/analyse?token&company&app_name&song_ids`
+- `GET /kcloud/getsingerlist_new?token&page&size&word&tp&company&app_name`
+- `GET /apollo/module/modulelist?id=2`
+- `GET /vodc/song/topics`
 
-#### 获取排行榜
-```
-GET /api/rankings?type=hot&limit=50
-响应：JSON数组（同歌曲列表格式）
-```
+**下载 / 其它**
+- `GET /MusicService.aspx?op=getmusicinfobynos&depot=2&nos=...`
+- `DELETE /pub?id=...`
 
-#### 获取分类列表
-```
-GET /api/categories
-响应：JSON数组
-[
-  {"category_id": 1, "category_name": "流行"},
-  {"category_id": 2, "category_name": "摇滚"},
-  ...
-]
-```
+**第三方 / 支付 / 分享**
+- `GET https://qnsign.ktvsky.com/qn/sign/v2?file_name=...&bucket=common-web`
+- `GET https://mc.ktv.com.cn/yjx/pay?license&company&app_name&macid`
+- `GET https://mcfd.ktv.com.cn/mobile_music/share?score=...`
 
-#### 点歌（添加到播放队列）
-```
-POST /api/queue/add
-请求体：JSON
-{
-  "song_id": "12345"
-}
-响应：JSON
-{
-  "success": true,
-  "message": "已添加到播放队列"
-}
-```
+**WebSocket（MVP 保留）**
+- `wss://mc.ktv.com.cn/ws/{license}`
+
+> 日志上传 `/karaoke_sdk/log/upload`：**非 MVP，暂不实现，后续按需恢复**。
 
 ---
 
@@ -326,7 +301,7 @@ void HttpService::setTimeout(int timeout_seconds) {
 
 ---
 
-## 三、Licence验证接口
+## 三、Licence验证接口（客户端自有 /api/licence/verify 保留）
 
 ### 3.1 验证Licence API
 
@@ -411,7 +386,13 @@ bool verifyLicence(const char* licence_code) {
 
 ## 四、歌曲数据服务（SongService）
 
-### 3.1 歌曲数据服务设计
+> 说明：保持现有 SongService 结构不变，但将 URL 构造替换为真实服务器接口：
+> - 列表：`/kcloud/getmusics`
+> - 搜索：`/apollo/search/actorsong`（type=actor/song 由 key/actorid 组合决定）
+> - 模块歌单：`/apollo/module/songlist`
+> - 榜单/专题：可用 `/vodc/song/list`（tp/type）或 `/vodc/song/topics`
+> - 点歌：仍用 POST `/karaoke_sdk/t/plist/set?token=...`
+> - 分类：可复用 `/kcloud/getsingerlist_new` 的 tp 字段或在客户端内置
 
 ```cpp
 #ifndef SONG_SERVICE_H
@@ -475,7 +456,7 @@ private:
 #endif // SONG_SERVICE_H
 ```
 
-### 3.2 歌曲数据服务实现
+### 3.2 歌曲数据服务实现（示例：真实接口）
 
 ```cpp
 #include "song_service.h"
@@ -486,14 +467,11 @@ namespace ktv {
 
 size_t SongService::getSongList(SongItem* out_songs, size_t max_count,
                                  int page, int size, int category_id) {
-    // 构建API URL
+    // 构建API URL → 对应 /kcloud/getmusics
     char url[512] = {0};
-    if (category_id > 0) {
-        snprintf(url, sizeof(url), "/api/songs?page=%d&size=%d&category=%d",
-                 page, size, category_id);
-    } else {
-        snprintf(url, sizeof(url), "/api/songs?page=%d&size=%d", page, size);
-    }
+    snprintf(url, sizeof(url),
+             "/kcloud/getmusics?token=%s&page=%d&size=%d&language=%s&company=%s&app_name=%s",
+             g_token, page, size, g_language, g_company, g_app_name);
     
     // 发送HTTP GET请求
     HttpResponse response;
@@ -507,9 +485,11 @@ size_t SongService::getSongList(SongItem* out_songs, size_t max_count,
 
 size_t SongService::searchSongs(SongItem* out_songs, size_t max_count,
                                  const char* keyword, const char* type) {
-    // 构建API URL
+    // 构建API URL → 对应 /apollo/search/actorsong
     char url[512] = {0};
-    snprintf(url, sizeof(url), "/api/search?keyword=%s&type=%s", keyword, type);
+    snprintf(url, sizeof(url),
+             "/apollo/search/actorsong?token=%s&page=%d&size=%d&key=%s&company=%s&app_name=%s",
+             g_token, 1, 20, keyword, g_company, g_app_name);
     
     // 发送HTTP GET请求
     HttpResponse response;
@@ -523,9 +503,11 @@ size_t SongService::searchSongs(SongItem* out_songs, size_t max_count,
 
 size_t SongService::getRankings(SongItem* out_songs, size_t max_count,
                                   const char* type, int limit) {
-    // 构建API URL
+    // 构建API URL → 复用 /vodc/song/list 的 tp/type 作为榜单参数
     char url[512] = {0};
-    snprintf(url, sizeof(url), "/api/rankings?type=%s&limit=%d", type, limit);
+    snprintf(url, sizeof(url),
+             "/vodc/song/list?token=%s&p=1&tp=%s&size=%d&type=%s&company=%s&app_name=%s",
+             g_token, type, limit, type, g_company, g_app_name);
     
     // 发送HTTP GET请求
     HttpResponse response;
@@ -538,8 +520,8 @@ size_t SongService::getRankings(SongItem* out_songs, size_t max_count,
 }
 
 size_t SongService::getCategories(int* out_ids, char (*out_names)[64], size_t max_count) {
-    // 构建API URL
-    const char* url = "/api/categories";
+    // （若无直接分类接口，可复用 kcloud/getsingerlist_new 的 tp 字段，或使用本地内置分类）
+    const char* url = "/vodc/song/topics";  // 示例：获取专题/分类
     
     // 发送HTTP GET请求
     HttpResponse response;
@@ -576,13 +558,16 @@ size_t SongService::getCategories(int* out_ids, char (*out_names)[64], size_t ma
 }
 
 bool SongService::addToQueue(const char* song_id) {
-    // 构建POST请求体（JSON）
+    // 直接调用服务器点歌接口：POST /karaoke_sdk/t/plist/set?token=...
+    char url[512] = {0};
+    snprintf(url, sizeof(url), "/karaoke_sdk/t/plist/set?token=%s", g_token);
+    
+    // 简单表单或JSON均可，这里用 JSON
     char json_data[256] = {0};
     snprintf(json_data, sizeof(json_data), "{\"song_id\":\"%s\"}", song_id);
     
-    // 发送HTTP POST请求
     HttpResponse response;
-    if (!HttpService::getInstance().post("/api/queue/add", json_data, response)) {
+    if (!HttpService::getInstance().post(url, json_data, response)) {
         return false;
     }
     

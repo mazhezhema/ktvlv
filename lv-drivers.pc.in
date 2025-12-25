@@ -1,0 +1,11 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: lv_drivers
+Description: LVGL drivers (stub for Windows SDL sim)
+Version: @LV_DRIVERS_VERSION@
+Libs:
+Cflags: -I${includedir}
+
