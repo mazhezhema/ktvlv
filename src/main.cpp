@@ -239,96 +239,10 @@ int main(int argc, char* argv[]) {
     ktv::services::HistoryService::getInstance().setCapacity(50);
     ktv::services::M3u8DownloadService::getInstance().initialize();
     
-    // ⚡ 步骤 8.1: 【优先】调用鉴权 API 获取 token（必须在获取数据之前）
-    printf("\n=== Token Authentication ===\n");
+    // ⚡ 步骤 8.1: 网络服务初始化将在后台线程异步执行（不阻塞主线程）
+    // 所有耗时操作（网络请求、IO）都移到主循环启动后执行
+    printf("Network services will be initialized asynchronously after UI loads...\n");
     fflush(stdout);
-    std::string token;
-    if (!net_cfg.license.empty()) {
-        printf("Step 1: Calling /karaoke_sdk/vod_token_by_macid API...\n");
-        printf("  License: %s\n", net_cfg.license.c_str());
-        printf("  Company: %s\n", net_cfg.company.c_str());
-        printf("  App Name: %s\n", net_cfg.app_name.c_str());
-        
-        // 获取 MAC 地址作为 macid
-        std::string macid = ktv::services::LicenceService::getMacAddress();
-        printf("  MAC ID: %s\n", macid.c_str());
-        fflush(stdout);
-        
-        token = ktv::services::LicenceService::getInstance().getTokenFromLicense(
-            net_cfg.license, net_cfg.company, net_cfg.app_name, macid);
-        
-        if (!token.empty()) {
-            printf("Step 2: Token obtained successfully!\n");
-            printf("  Token length: %zu characters\n", token.length());
-            printf("  Token preview: %s...\n", token.substr(0, token.length() > 20 ? 20 : token.length()).c_str());
-            fflush(stdout);
-            
-            // 设置 token 到 SongService（所有后续 API 调用都会使用这个 token）
-            ktv::services::SongService::getInstance().setToken(token);
-            
-            // 验证 token 已正确设置
-            std::string verify_token = ktv::services::SongService::getInstance().getToken();
-            if (verify_token == token) {
-                printf("Step 3: Token verified in SongService (length: %zu)\n", verify_token.length());
-            } else {
-                printf("WARNING: Token verification failed! Expected length: %zu, Got: %zu\n", 
-                       token.length(), verify_token.length());
-            }
-            
-            printf("=== Token Authentication Complete ===\n\n");
-            fflush(stdout);
-            PLOGI << "Token authentication successful, token length: " << token.length();
-            
-            // ⚡ 步骤 8.2: 获取运行时配置（根据文档，在获取 token 后立即调用）
-            printf("=== Runtime Configuration ===\n");
-            fflush(stdout);
-            bool config_ok = ktv::services::LicenceService::getInstance().getRuntimeConfig(
-                token, net_cfg.platform, net_cfg.company, net_cfg.app_name, net_cfg.vn);
-            if (config_ok) {
-                printf("Runtime config loaded successfully\n");
-                printf("=== Runtime Configuration Complete ===\n\n");
-                fflush(stdout);
-                PLOGI << "Runtime configuration loaded";
-            } else {
-                printf("WARNING: Failed to load runtime config, continuing anyway\n");
-                printf("=== Runtime Configuration Failed ===\n\n");
-                fflush(stdout);
-                PLOGW << "Runtime configuration failed, continuing";
-            }
-            
-            // ⚡ 步骤 8.3: 检查更新（可选，根据配置决定）
-            // 注意：当前简化实现，不检查 hot_update 标志，直接尝试检查更新
-            printf("=== Update Check ===\n");
-            fflush(stdout);
-            std::string update_url = ktv::services::LicenceService::getInstance().checkUpdate(
-                token, net_cfg.platform, net_cfg.vn, net_cfg.license, 
-                net_cfg.company, net_cfg.app_name);
-            if (!update_url.empty()) {
-                printf("Update available: %s\n", update_url.c_str());
-                printf("=== Update Check Complete ===\n\n");
-                fflush(stdout);
-                PLOGI << "Update available: " << update_url;
-            } else {
-                printf("No update available\n");
-                printf("=== Update Check Complete ===\n\n");
-                fflush(stdout);
-            }
-        } else {
-            printf("ERROR: Token acquisition failed!\n");
-            printf("  Check debug_token_response.json for details\n");
-            printf("  Application will continue with empty token (may fail for protected APIs)\n");
-            printf("=== Token Authentication Failed ===\n\n");
-            fflush(stdout);
-            PLOGW << "Token acquisition failed, continuing with empty token";
-        }
-    } else {
-        printf("WARNING: No license configured in config.ini\n");
-        printf("  Skipping token acquisition\n");
-        printf("  Application will use empty token (may fail for protected APIs)\n");
-        printf("=== Token Authentication Skipped ===\n\n");
-        fflush(stdout);
-        PLOGW << "No license configured, skipping token acquisition";
-    }
     
     // 验证显示分辨率（在TaskService初始化前）
     if (g_display) {
@@ -499,8 +413,92 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // ⚡ 步骤 11: 异步初始化网络服务（不阻塞主线程）
+    // 所有耗时操作（网络请求、IO）都在后台线程执行
+    printf("Starting async service initialization...\n");
+    fflush(stdout);
+    
+    // 在后台线程异步执行所有网络请求和耗时操作
+    ktv::services::TaskService::getInstance().runAsync([net_cfg]() {
+        printf("[Background] Starting token authentication...\n");
+        fflush(stdout);
+        
+        std::string token;
+        if (!net_cfg.license.empty()) {
+            printf("[Background] Step 1: Calling /karaoke_sdk/vod_token_by_macid API...\n");
+            printf("[Background]   License: %s\n", net_cfg.license.c_str());
+            printf("[Background]   Company: %s\n", net_cfg.company.c_str());
+            printf("[Background]   App Name: %s\n", net_cfg.app_name.c_str());
+            fflush(stdout);
+            
+            // 获取 MAC 地址作为 macid
+            std::string macid = ktv::services::LicenceService::getMacAddress();
+            printf("[Background]   MAC ID: %s\n", macid.c_str());
+            fflush(stdout);
+            
+            // 网络请求在后台线程执行，不阻塞主线程
+            token = ktv::services::LicenceService::getInstance().getTokenFromLicense(
+                net_cfg.license, net_cfg.company, net_cfg.app_name, macid);
+            
+            if (!token.empty()) {
+                printf("[Background] Token obtained successfully (length: %zu)\n", token.length());
+                fflush(stdout);
+                
+                // 设置 token 到 SongService（需要在UI线程执行，因为可能触发UI更新）
+                ktv::services::TaskService::getInstance().runOnUIThread([token]() {
+                    ktv::services::SongService::getInstance().setToken(token);
+                    printf("[UI Thread] Token set to SongService\n");
+                    fflush(stdout);
+                    PLOGI << "Token set to SongService, length: " << token.length();
+                });
+                
+                // 继续在后台线程获取配置和检查更新
+                printf("[Background] Fetching runtime config...\n");
+                fflush(stdout);
+                bool config_ok = ktv::services::LicenceService::getInstance().getRuntimeConfig(
+                    token, net_cfg.platform, net_cfg.company, net_cfg.app_name, net_cfg.vn);
+                if (config_ok) {
+                    printf("[Background] Runtime config loaded successfully\n");
+                    fflush(stdout);
+                    PLOGI << "Runtime configuration loaded";
+                } else {
+                    printf("[Background] WARNING: Failed to load runtime config\n");
+                    fflush(stdout);
+                    PLOGW << "Runtime configuration failed";
+                }
+                
+                // 检查更新（可选）
+                printf("[Background] Checking for updates...\n");
+                fflush(stdout);
+                std::string update_url = ktv::services::LicenceService::getInstance().checkUpdate(
+                    token, net_cfg.platform, net_cfg.vn, net_cfg.license, 
+                    net_cfg.company, net_cfg.app_name);
+                if (!update_url.empty()) {
+                    printf("[Background] Update available: %s\n", update_url.c_str());
+                    fflush(stdout);
+                    PLOGI << "Update available: " << update_url;
+                } else {
+                    printf("[Background] No update available\n");
+                    fflush(stdout);
+                }
+            } else {
+                printf("[Background] ERROR: Token acquisition failed!\n");
+                printf("[Background]   Check debug_token_response.json for details\n");
+                fflush(stdout);
+                PLOGW << "Token acquisition failed, continuing with empty token";
+            }
+        } else {
+            printf("[Background] WARNING: No license configured, skipping token acquisition\n");
+            fflush(stdout);
+            PLOGW << "No license configured, skipping token acquisition";
+        }
+        
+        printf("[Background] Service initialization complete\n");
+        fflush(stdout);
+    });
+    
     PLOGI << "Application started, entering main loop...";
-    printf("Entering main loop...\n");
+    printf("Entering main loop (UI should be visible now)...\n");
     fflush(stdout);  // 强制刷新输出缓冲区
     
     bool running = true;

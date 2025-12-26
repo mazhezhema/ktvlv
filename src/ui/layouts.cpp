@@ -965,13 +965,25 @@ lv_obj_t* create_main_screen() {
     // 设置布局
     setup_flex_col(scr, 6, 6);
     
-    // 先创建一个简单的测试标签，确保渲染工作
-    lv_obj_t* test_label = lv_label_create(scr);
-    lv_label_set_text(test_label, "KTV LVGL Test - If you see this, rendering works!");
+    // 创建一个非常醒目的测试标签，确保UI渲染可见
+    // 使用大号红色文字，带背景框，居中显示
+    lv_obj_t* test_container = lv_obj_create(scr);
+    lv_obj_set_size(test_container, 600, 150);
+    lv_obj_align(test_container, LV_ALIGN_CENTER, 0, -200);
+    lv_obj_set_style_bg_color(test_container, lv_color_hex(0xFF0000), 0);  // 红色背景
+    lv_obj_set_style_bg_opa(test_container, LV_OPA_80, 0);
+    lv_obj_set_style_border_color(test_container, lv_color_white(), 0);
+    lv_obj_set_style_border_width(test_container, 5, 0);
+    lv_obj_set_style_radius(test_container, 20, 0);
+    
+    lv_obj_t* test_label = lv_label_create(test_container);
+    lv_label_set_text(test_label, "🔥🔥🔥 KTVLV UI OK 🔥🔥🔥\nRendering Works!");
     lv_obj_set_style_text_color(test_label, lv_color_white(), 0);
     lv_obj_set_style_text_font(test_label, LV_FONT_DEFAULT, 0);
-    lv_obj_align(test_label, LV_ALIGN_TOP_MID, 0, 20);
-    printf("Test label created on main screen\n");
+    lv_obj_set_style_text_align(test_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_center(test_label);
+    
+    printf("Test label created on main screen (very visible red box)\n");
     fflush(stdout);
 
     lv_obj_t* top = create_top_bar(scr);
