@@ -20,6 +20,18 @@ void show_history_tab(lv_obj_t* content_area);
 // 显示搜索页
 void show_search_page(lv_obj_t* content_area);
 
+// 显示分类浏览页面
+void show_category_page(lv_obj_t* content_area);
+
+// 显示排行榜页面
+void show_ranking_page(lv_obj_t* content_area);
+
+// 显示歌手页面
+void show_artist_page(lv_obj_t* content_area);
+
+// 显示热歌榜页面
+void show_hot_songs_page(lv_obj_t* content_area);
+
 // 显示播放浮层/控制条
 lv_obj_t* create_player_bar(lv_obj_t* parent);
 

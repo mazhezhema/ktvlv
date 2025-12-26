@@ -42,17 +42,31 @@ void sdl_init(void) {
     }
     printf("SDL window created\n");
     
-    // 尝试软件渲染器作为备选
+    // 优化：改进渲染器创建策略，按优先级尝试
+    // 1. 首先尝试硬件加速 + VSync（最佳性能）
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
-        printf("Hardware renderer failed, trying software renderer...\n");
-        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    if (renderer) {
+        printf("SDL renderer created: Hardware accelerated + VSync\n");
+    } else {
+        printf("Hardware accelerated + VSync failed: %s\n", SDL_GetError());
+        
+        // 2. 尝试硬件加速（无 VSync）
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+        if (renderer) {
+            printf("SDL renderer created: Hardware accelerated (no VSync)\n");
+        } else {
+            printf("Hardware accelerated failed: %s\n", SDL_GetError());
+            
+            // 3. 最后回退到软件渲染器（最稳定但性能较低）
+            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+            if (renderer) {
+                printf("SDL renderer created: Software renderer (fallback)\n");
+            } else {
+                fprintf(stderr, "SDL_CreateRenderer failed (all methods): %s\n", SDL_GetError());
+                return;
+            }
+        }
     }
-    if (!renderer) {
-        fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
-        return;
-    }
-    printf("SDL renderer created\n");
     
     texture = SDL_CreateTexture(
         renderer,
@@ -170,7 +184,16 @@ bool sdl_handle_events() {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
+            printf("[SDL] SDL_QUIT event received - window close requested\n");
+            fflush(stdout);
             return false;  // 窗口关闭，退出程序
+        } else if (e.type == SDL_WINDOWEVENT) {
+            // 处理窗口事件
+            if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
+                printf("[SDL] SDL_WINDOWEVENT_CLOSE received\n");
+                fflush(stdout);
+                return false;  // 窗口关闭，退出程序
+            }
         } else if (e.type == SDL_MOUSEMOTION) {
             mouse_x = e.motion.x;
             mouse_y = e.motion.y;

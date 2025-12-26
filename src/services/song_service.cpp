@@ -195,7 +195,9 @@ std::vector<SongItem> SongService::listSongs(int page, int size) {
     bool http_ok = HttpService::getInstance().get(url, resp);
     PLOGD << "HttpService::get returned: " << (http_ok ? "success" : "failed");
     if (!http_ok) {
-        PLOGW << "listSongs HTTP failed";
+        // 网络失败是正常现象（离线、网络不通、服务器异常等）
+        // 不抛出异常，优雅降级到缓存或mock数据
+        PLOGW << "listSongs HTTP failed (status: " << resp.status_code << "), this is normal when offline";
         return result;
     }
     PLOGD << "Parsing response, body length: " << resp.body_len;
@@ -224,8 +226,11 @@ std::vector<SongItem> SongService::search(const std::string& keyword, int page, 
                   "/apollo/search/actorsong?token=%s&page=%d&size=%d&key=%s&company=%s&app_name=%s",
                   token_.c_str(), page, size, keyword.c_str(), net_cfg_.company.c_str(),
                   net_cfg_.app_name.c_str());
-    if (!HttpService::getInstance().get(url, resp)) {
-        PLOGW << "search HTTP failed";
+    bool http_ok = HttpService::getInstance().get(url, resp);
+    if (!http_ok) {
+        // 网络失败是正常现象（离线、网络不通、服务器异常等）
+        // 不抛出异常，优雅降级到缓存或mock数据
+        PLOGW << "search HTTP failed (status: " << resp.status_code << "), this is normal when offline";
         return result;
     }
     parse_song_array(resp.body.data(), result);
@@ -240,8 +245,12 @@ bool SongService::addToQueue(const std::string& song_id) {
                   token_.c_str());
     char body[256]{0};
     std::snprintf(body, sizeof(body), "{\"song_id\":\"%s\"}", song_id.c_str());
-    if (!HttpService::getInstance().post(url, body, resp)) {
-        PLOGW << "addToQueue HTTP failed";
+    bool http_ok = HttpService::getInstance().post(url, body, resp);
+    if (!http_ok) {
+        // 网络失败是正常现象（离线、网络不通、服务器异常等）
+        // 在离线模式下，点歌功能仍然可以工作（使用本地队列）
+        PLOGW << "addToQueue HTTP failed (status: " << resp.status_code << "), this is normal when offline";
+        // 返回false，但不会导致程序崩溃，UI层会处理
         return false;
     }
     return true;
@@ -261,6 +270,7 @@ std::vector<SongItem> SongService::listSongsOfflineFirst(int page, int size) {
     }
     
     // 尝试联网更新（注意：这是同步调用，可能会阻塞最多10秒）
+    // 网络不通、离线或异常是正常现象，需要优雅处理
     PLOGD << "Attempting network request for songs (may take up to 10 seconds)...";
     std::vector<SongItem> online_result = listSongs(page, size);
     PLOGD << "Network request completed, result size: " << online_result.size();
@@ -271,9 +281,13 @@ std::vector<SongItem> SongService::listSongsOfflineFirst(int page, int size) {
         PLOGI << "Updated cache with " << online_result.size() << " songs from server";
         return online_result;
     } else {
-        // 联网失败，使用缓存数据（如果有）
-        if (result.empty()) {
-            PLOGW << "No cache and network failed, returning empty result";
+        // 联网失败是正常现象（网络不通、离线、服务器异常等）
+        // 使用缓存数据（如果有），这是离线优先架构的核心
+        if (!result.empty()) {
+            PLOGI << "Network request failed, using cached data (" << result.size() << " songs)";
+        } else {
+            PLOGW << "Network request failed and no cache available, returning empty result";
+            PLOGW << "This is normal when offline or network is unavailable";
         }
         return result;
     }
@@ -294,6 +308,7 @@ std::vector<SongItem> SongService::searchOfflineFirst(const std::string& keyword
     }
     
     // 尝试联网更新（不阻塞，失败时继续使用缓存数据）
+    // 网络不通、离线或异常是正常现象，需要优雅处理
     std::vector<SongItem> online_result = search(keyword, page, size);
     if (!online_result.empty()) {
         // 联网成功，更新缓存
@@ -301,9 +316,13 @@ std::vector<SongItem> SongService::searchOfflineFirst(const std::string& keyword
         PLOGI << "Updated search cache with " << online_result.size() << " results from server";
         return online_result;
     } else {
-        // 联网失败，使用缓存数据（如果有）
-        if (result.empty()) {
-            PLOGW << "No cache and network failed for search: " << keyword;
+        // 联网失败是正常现象（网络不通、离线、服务器异常等）
+        // 使用缓存数据（如果有），这是离线优先架构的核心
+        if (!result.empty()) {
+            PLOGI << "Network search failed, using cached results (" << result.size() << " items) for: " << keyword;
+        } else {
+            PLOGW << "Network search failed and no cache available for: " << keyword;
+            PLOGW << "This is normal when offline or network is unavailable";
         }
         return result;
     }

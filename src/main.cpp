@@ -10,6 +10,8 @@
 #include "services/cache_service.h"
 #include "services/task_service.h"
 #include "services/licence_service.h"
+#include <exception>
+#include <stdexcept>
 #include "services/history_service.h"
 #include "services/m3u8_download_service.h"
 #include "services/player_service.h"
@@ -58,10 +60,15 @@ static void init_display() {
     fflush(stdout);
     lv_disp_drv_init(&disp_drv);
     
-    // ⚡ 步骤 5: 设置显示驱动参数（必须在 init 之后，register 之前）
-    printf("Step 4: Setting display driver parameters...\n");
+    // ⚡ 步骤 5: 提前设置 flush_cb（优化：在设置其他参数之前注册回调）
+    // 这样可以确保 flush_cb 在整个驱动生命周期内都可用
+    printf("Step 4: Registering flush callback (early registration)...\n");
     fflush(stdout);
     disp_drv.flush_cb = sdl_display_flush;
+    
+    // ⚡ 步骤 6: 设置显示驱动参数（必须在 init 之后，register 之前）
+    printf("Step 5: Setting display driver parameters...\n");
+    fflush(stdout);
     disp_drv.draw_buf = &draw_buf;
     
     // ⚡ 关键：设置分辨率（必须在注册前设置，使用常量值确保正确）
@@ -85,12 +92,12 @@ static void init_display() {
         return;
     }
     
-    printf("Step 4: Display driver parameters set: %dx%d\n", 
+    printf("Step 5: Display driver parameters set: %dx%d\n", 
            (int)disp_drv.hor_res, (int)disp_drv.ver_res);
     fflush(stdout);
     
-    // ⚡ 步骤 6: 注册显示驱动
-    printf("Step 5: Registering display driver...\n");
+    // ⚡ 步骤 7: 注册显示驱动（flush_cb 已提前设置）
+    printf("Step 6: Registering display driver...\n");
     fflush(stdout);
     lv_disp_t* disp = lv_disp_drv_register(&disp_drv);
     if (!disp) {
@@ -102,11 +109,11 @@ static void init_display() {
     
     // 保存显示驱动指针
     g_display = disp;
-    printf("Step 5: Display driver registered successfully\n");
+    printf("Step 6: Display driver registered successfully (flush_cb ready)\n");
     fflush(stdout);
     
-    // ⚡ 步骤 7: 验证注册后的分辨率（硬防御检查）
-    printf("Step 6: Verifying display resolution after registration...\n");
+    // ⚡ 步骤 8: 验证注册后的分辨率（硬防御检查）
+    printf("Step 7: Verifying display resolution after registration...\n");
     fflush(stdout);
     
     // 使用注册返回的指针验证
@@ -125,7 +132,7 @@ static void init_display() {
         fflush(stdout);
         // 不返回，继续运行以便调试
     } else {
-        printf("Step 6: Display resolution verified: OK\n");
+        printf("Step 7: Display resolution verified: OK\n");
         fflush(stdout);
     }
     
@@ -278,19 +285,11 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    // ⚡ 步骤 10: 初始化缓存服务（离线优先架构的核心）
-    printf("Initializing CacheService...\n");
-    fflush(stdout);
-    if (!ktv::services::CacheService::getInstance().initialize("cache")) {
-        PLOGW << "Failed to initialize cache service, continuing without cache";
-    } else {
-        PLOGI << "Cache service initialized";
-    }
-    printf("CacheService initialized\n");
-    fflush(stdout);
-    
-    // 设置SongService的网络配置
+    // ⚡ 步骤 10: 设置SongService的网络配置（快速操作，不阻塞）
     ktv::services::SongService::getInstance().setNetworkConfig(net_cfg);
+    
+    // ⚡ 注意：CacheService 初始化移到后台线程，避免文件系统操作阻塞主线程
+    // std::filesystem::create_directories() 在某些情况下可能阻塞（网络驱动器、权限问题等）
 
     // 验证显示分辨率（在创建屏幕前）
     if (g_display) {
@@ -358,18 +357,14 @@ int main(int argc, char* argv[]) {
                (int)disp_w_after, (int)disp_h_after);
         fflush(stdout);
         
-        // 标记整个屏幕需要刷新
+        // 标记整个屏幕需要刷新（让 LVGL 自动调度刷新，避免过度调用 lv_refr_now）
         lv_obj_invalidate(scr);
-        printf("Screen invalidated, calling lv_refr_now...\n");
+        printf("Screen invalidated, LVGL will schedule refresh automatically\n");
         fflush(stdout);
         
-        // 立即刷新整个显示（多次刷新确保显示）
-        for (int i = 0; i < 3; i++) {
-            lv_refr_now(disp_after);
-            SDL_Delay(10);  // 短暂延迟，确保刷新完成
-        }
-        
-        printf("lv_refr_now completed (3 times), flush callback should have been called\n");
+        // 只调用一次 lv_refr_now 进行初始刷新（后续由 lv_timer_handler 自动处理）
+        lv_refr_now(disp_after);
+        printf("Initial refresh completed, flush callback should have been called\n");
         fflush(stdout);
         PLOGI << "Screen refreshed, size: " << LV_HOR_RES_MAX << "x" << LV_VER_RES_MAX;
     } else {
@@ -379,13 +374,31 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // ⚡ 步骤 11: 异步初始化网络服务（不阻塞主线程）
-    // 所有耗时操作（网络请求、IO）都在后台线程执行
-    printf("Starting async service initialization...\n");
+    // ⚡ 步骤 11: 立即启动主循环（不等待任何初始化）
+    // 关键：主循环必须在所有耗时操作之前启动，确保 UI 立即响应
+    printf("========================================\n");
+    printf("CRITICAL: Starting main loop IMMEDIATELY...\n");
+    printf("All blocking operations will run in background thread\n");
+    printf("========================================\n");
     fflush(stdout);
     
-    // 在后台线程异步执行所有网络请求和耗时操作
+    // ⚡ 步骤 12: 异步初始化所有耗时服务（不阻塞主线程）
+    // 所有耗时操作（文件系统、网络请求、IO）都在后台线程执行
+    // 注意：这个调用是异步的，不会阻塞主循环
     ktv::services::TaskService::getInstance().runAsync([net_cfg]() {
+        // ⚡ 首先初始化 CacheService（文件系统操作，可能阻塞）
+        printf("[Background] Initializing CacheService...\n");
+        fflush(stdout);
+        if (!ktv::services::CacheService::getInstance().initialize("cache")) {
+            PLOGW << "Failed to initialize cache service, continuing without cache";
+            printf("[Background] CacheService initialization failed, continuing without cache\n");
+        } else {
+            PLOGI << "Cache service initialized";
+            printf("[Background] CacheService initialized successfully\n");
+        }
+        fflush(stdout);
+        
+        // ⚡ 然后执行网络请求
         printf("[Background] Starting token authentication...\n");
         fflush(stdout);
         
@@ -428,12 +441,14 @@ int main(int argc, char* argv[]) {
                     fflush(stdout);
                     PLOGI << "Runtime configuration loaded";
                 } else {
-                    printf("[Background] WARNING: Failed to load runtime config\n");
+                    // 网络失败是正常现象（离线、网络不通、服务器异常等）
+                    printf("[Background] WARNING: Failed to load runtime config (network unavailable or offline)\n");
+                    printf("[Background]   This is normal - application will continue in offline mode\n");
                     fflush(stdout);
-                    PLOGW << "Runtime configuration failed";
+                    PLOGW << "Runtime configuration failed (network unavailable), continuing in offline mode";
                 }
                 
-                // 检查更新（可选）
+                // 检查更新（可选，失败不影响程序运行）
                 printf("[Background] Checking for updates...\n");
                 fflush(stdout);
                 std::string update_url = ktv::services::LicenceService::getInstance().checkUpdate(
@@ -444,14 +459,19 @@ int main(int argc, char* argv[]) {
                     fflush(stdout);
                     PLOGI << "Update available: " << update_url;
                 } else {
-                    printf("[Background] No update available\n");
+                    // 更新检查失败是正常现象（离线、网络不通、服务器异常等）
+                    printf("[Background] No update available (or network unavailable)\n");
+                    printf("[Background]   This is normal - application continues to work\n");
                     fflush(stdout);
                 }
             } else {
-                printf("[Background] ERROR: Token acquisition failed!\n");
+                // Token获取失败是正常现象（离线、网络不通、服务器异常等）
+                // 程序会继续运行，使用离线模式
+                printf("[Background] WARNING: Token acquisition failed (network unavailable or offline)\n");
+                printf("[Background]   This is normal - application will continue in offline mode\n");
                 printf("[Background]   Check debug_token_response.json for details\n");
                 fflush(stdout);
-                PLOGW << "Token acquisition failed, continuing with empty token";
+                PLOGW << "Token acquisition failed (network unavailable), continuing in offline mode";
             }
         } else {
             printf("[Background] WARNING: No license configured, skipping token acquisition\n");
@@ -461,34 +481,108 @@ int main(int argc, char* argv[]) {
         
         printf("[Background] Service initialization complete\n");
         fflush(stdout);
+        
+        // ⚡ 优化：CacheService 初始化完成后，更新 UI 显示首页内容
+        // ⚡ 注意：首页内容已经在 create_main_screen 中立即显示了
+        // 这里不再需要重复调用 show_home_tab，因为 UI 应该已经可见
+        // 如果需要在后台初始化完成后刷新数据，可以在这里调用数据更新逻辑
+        printf("[Background] CacheService initialized, UI should already be visible\n");
+        fflush(stdout);
     });
     
+    // ⚡ 主循环立即启动（不等待任何后台初始化）
     PLOGI << "Application started, entering main loop...";
-    printf("Entering main loop (UI should be visible now)...\n");
-    fflush(stdout);  // 强制刷新输出缓冲区
+    printf("========================================\n");
+    printf("[MAIN] Entering main event loop NOW...\n");
+    printf("[MAIN] UI should be visible, all blocking ops in background\n");
+    printf("========================================\n");
+    fflush(stdout);
     
     bool running = true;
     int loop_count = 0;
+    uint32_t last_print_time = SDL_GetTicks();
+    uint32_t loop_start_time = SDL_GetTicks();
+    
     while (running) {
-        running = sdl_handle_events();  // 处理 SDL 事件（窗口关闭、鼠标、键盘等），返回 false 时退出
-        
-        // 处理 LVGL 定时器和刷新
-        uint32_t task_delay = lv_timer_handler();
-        
-        // 前几次循环强制刷新，确保UI显示
-        if (loop_count < 5) {
-            // 优先使用保存的显示驱动指针
-            lv_disp_t* disp = g_display ? g_display : lv_disp_get_default();
-            if (disp) {
-                lv_refr_now(disp);
+        try {
+            // ⚡ 关键：每次循环都检查，确保快速响应
+            // 处理 SDL 事件（必须快速执行，不阻塞）
+            running = sdl_handle_events();
+            if (!running) {
+                printf("[MAIN] SDL event handler requested exit (SDL_QUIT event received)\n");
+                printf("[MAIN] This usually means the window was closed by user\n");
+                fflush(stdout);
+                break;
             }
-            printf("Main loop iteration %d, task_delay=%u\n", loop_count, task_delay);
-            loop_count++;
+        } catch (const std::exception& e) {
+            printf("[MAIN] Exception in main loop: %s\n", e.what());
+            fflush(stdout);
+            PLOGE << "Exception in main loop: " << e.what();
+            // 继续运行，不退出
+        } catch (...) {
+            printf("[MAIN] Unknown exception in main loop\n");
+            fflush(stdout);
+            PLOGE << "Unknown exception in main loop";
+            // 继续运行，不退出
         }
         
-        // 使用 LVGL 建议的延迟时间，但最小 5ms
-        SDL_Delay(task_delay > 5 ? task_delay : 5);
+        try {
+            // 处理 LVGL 定时器和刷新（必须快速执行，不阻塞）
+            // lv_timer_handler() 返回建议的延迟时间（毫秒），0 表示需要立即处理
+            uint32_t task_delay = lv_timer_handler();
+            
+            // 第一次循环：强制刷新并输出确认信息
+            if (loop_count == 0) {
+                uint32_t elapsed = SDL_GetTicks() - loop_start_time;
+                lv_disp_t* disp = g_display ? g_display : lv_disp_get_default();
+                if (disp) {
+                    lv_refr_now(disp);  // 仅第一次强制刷新
+                }
+                printf("[MAIN] Loop #%d STARTED (elapsed: %ums), initial refresh completed\n", 
+                       loop_count, elapsed);
+                printf("[MAIN] Main loop is RUNNING, UI should be responsive now\n");
+                fflush(stdout);
+            }
+            
+            // 每50次循环打印一次状态（更频繁，便于诊断）
+            if (loop_count > 0 && loop_count % 50 == 0) {
+                uint32_t current_time = SDL_GetTicks();
+                uint32_t elapsed = current_time - last_print_time;
+                printf("[MAIN] Loop #%d running (elapsed: %ums, task_delay: %u, total: %ums, running=%d)\n", 
+                       loop_count, elapsed, task_delay, current_time - loop_start_time, running);
+                fflush(stdout);
+                last_print_time = current_time;
+            }
+            
+            loop_count++;
+            
+            // 优化主循环调度策略：
+            // - task_delay == 0: 需要立即处理，延迟 1ms 避免 CPU 占用过高
+            // - task_delay > 0: 使用 LVGL 建议的延迟时间
+            // - 最小延迟 1ms，最大延迟 50ms（避免响应过慢）
+            uint32_t delay_ms = 1;
+            if (task_delay > 0) {
+                delay_ms = (task_delay < 50) ? task_delay : 50;
+            }
+            
+            // ⚡ 关键：必须调用 SDL_Delay，否则主循环会占用 100% CPU
+            // 但延迟时间要短，确保响应性
+            SDL_Delay(delay_ms);
+        } catch (const std::exception& e) {
+            printf("[MAIN] Exception in main loop (after delay): %s\n", e.what());
+            fflush(stdout);
+            PLOGE << "Exception in main loop (after delay): " << e.what();
+            // 继续运行，不退出
+        } catch (...) {
+            printf("[MAIN] Unknown exception in main loop (after delay)\n");
+            fflush(stdout);
+            PLOGE << "Unknown exception in main loop (after delay)";
+            // 继续运行，不退出
+        }
     }
+    
+    printf("[MAIN] Main loop exiting (running=%d, loop_count=%d)\n", running, loop_count);
+    fflush(stdout);
     
     // 清理任务服务
     ktv::services::TaskService::getInstance().cleanup();

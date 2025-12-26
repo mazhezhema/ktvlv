@@ -22,6 +22,18 @@ void PageManager::switchTo(Page page) {
         case Page::Search:
             show_search_page(content_area_);
             break;
+        case Page::Category:
+            show_category_page(content_area_);
+            break;
+        case Page::Ranking:
+            show_ranking_page(content_area_);
+            break;
+        case Page::Artist:
+            show_artist_page(content_area_);
+            break;
+        case Page::HotSongs:
+            show_hot_songs_page(content_area_);
+            break;
         default:
             break;
     }

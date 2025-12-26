@@ -138,12 +138,15 @@ std::string LicenceService::getTokenFromLicense(const std::string& license,
     }
     
     if (!http_ok) {
-        printf("ERROR: HTTP request failed. Status code: %ld\n", resp.status_code);
+        // 网络失败是正常现象（离线、网络不通、服务器异常等）
+        // 不抛出异常，返回空token，程序会继续运行（使用离线模式）
+        printf("WARNING: Token request failed (this is normal when offline). Status code: %ld\n", resp.status_code);
         if (resp.body_len > 0) {
-            printf("ERROR: Response body: %s\n", resp.body.data());
+            printf("WARNING: Response body: %s\n", resp.body.data());
         }
         fflush(stdout);
         PLOGW << "Failed to get token from license: " << license << ", status: " << resp.status_code;
+        PLOGW << "This is normal when offline or network is unavailable, application will continue in offline mode";
         return "";
     }
     
@@ -240,12 +243,16 @@ bool LicenceService::getRuntimeConfig(const std::string& token,
     bool http_ok = HttpService::getInstance().get(url, resp);
     
     if (!http_ok) {
-        printf("WARNING: Failed to get runtime config. Status code: %ld\n", resp.status_code);
+        // 运行时配置获取失败是正常现象（离线、网络不通、服务器异常等）
+        // 不影响程序运行，返回false表示使用默认配置
+        printf("WARNING: Runtime config request failed (network unavailable or offline). Status code: %ld\n", resp.status_code);
         if (resp.body_len > 0) {
             printf("WARNING: Response: %s\n", resp.body.data());
         }
+        printf("WARNING: This is normal - application will continue with default config\n");
         fflush(stdout);
-        PLOGW << "Failed to get runtime config, status: " << resp.status_code;
+        PLOGW << "Failed to get runtime config (network unavailable), status: " << resp.status_code;
+        PLOGW << "This is normal when offline or network is unavailable";
         return false;
     }
     
@@ -306,9 +313,13 @@ std::string LicenceService::checkUpdate(const std::string& token,
     bool http_ok = HttpService::getInstance().get(url, resp);
     
     if (!http_ok) {
-        printf("WARNING: Update check failed. Status code: %ld\n", resp.status_code);
+        // 更新检查失败是正常现象（离线、网络不通、服务器异常等）
+        // 不影响程序运行，返回空字符串表示无更新
+        printf("WARNING: Update check failed (network unavailable or offline). Status code: %ld\n", resp.status_code);
+        printf("WARNING: This is normal - application will continue without update check\n");
         fflush(stdout);
-        PLOGW << "Update check failed, status: " << resp.status_code;
+        PLOGW << "Update check failed (network unavailable), status: " << resp.status_code;
+        PLOGW << "This is normal when offline or network is unavailable";
         return "";
     }
     

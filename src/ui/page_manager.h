@@ -9,6 +9,10 @@ enum class Page {
     Home = 0,
     History,
     Search,
+    Category,      // 分类浏览页面
+    Ranking,       // 排行榜页面
+    Artist,        // 歌手页面
+    HotSongs,      // 热歌榜页面
 };
 
 // 轻量页面管理（单例，记录内容区域并切换展示）
@@ -24,6 +28,9 @@ public:
 
     // 设置内容区域容器
     void setContentArea(lv_obj_t* content_area);
+    
+    // 获取内容区域容器
+    lv_obj_t* getContentArea() const { return content_area_; }
 
     // 切换页面
     void switchTo(Page page);

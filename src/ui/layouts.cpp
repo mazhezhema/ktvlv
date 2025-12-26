@@ -153,22 +153,29 @@ static void on_back_to_main(lv_event_t* e) {
 }
 
 // 创建带返回按钮的标题栏（公共函数）
+// 用于分类、排行榜、歌手等二级页面
 static lv_obj_t* create_title_bar(lv_obj_t* parent, const char* title_text) {
     lv_obj_t* title_bar = lv_obj_create(parent);
     lv_obj_set_size(title_bar, LV_PCT(100), 50);
     setup_flex_row(title_bar, 10, 10);
     lv_obj_set_style_bg_opa(title_bar, LV_OPA_60, 0);
     
+    // 返回按钮（左侧）
+    lv_obj_t* back_btn = lv_btn_create(title_bar);
+    lv_obj_add_style(back_btn, &style_btn, 0);
+    lv_obj_add_style(back_btn, &style_btn_pressed, LV_STATE_PRESSED);
+    lv_obj_set_size(back_btn, 80, LV_PCT(100));
+    lv_obj_t* back_lbl = lv_label_create(back_btn);
+    lv_label_set_text(back_lbl, LV_SYMBOL_LEFT " 返回");
+    lv_obj_center(back_lbl);
+    lv_obj_add_event_cb(back_btn, on_back_to_main, LV_EVENT_CLICKED, nullptr);
+    
+    // 标题（中间，占据剩余空间）
     lv_obj_t* title = lv_label_create(title_bar);
     lv_label_set_text(title, title_text);
     lv_obj_set_style_text_font(title, LV_FONT_DEFAULT, 0);
-    
-    lv_obj_t* back_btn = lv_btn_create(title_bar);
-    lv_obj_add_style(back_btn, &style_btn, 0);
-    lv_obj_t* back_lbl = lv_label_create(back_btn);
-    lv_label_set_text(back_lbl, LV_SYMBOL_CLOSE " 返回");
-    lv_obj_center(back_lbl);
-    lv_obj_add_event_cb(back_btn, on_back_to_main, LV_EVENT_CLICKED, nullptr);
+    lv_obj_set_flex_grow(title, 1);
+    lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, 0);
     
     return title_bar;
 }
@@ -210,7 +217,7 @@ static void on_top_btn_event(lv_event_t* e) {
     intptr_t id = reinterpret_cast<intptr_t>(lv_event_get_user_data(e));
     Page page = Page::Home;
     if (id == 1) page = Page::History;
-    else if (id == 2) page = Page::Search;
+    // 注意：搜索功能在首页内，不再作为独立的Tab
     PageManager::getInstance().switchTo(page);
 }
 
@@ -220,12 +227,47 @@ static lv_obj_t* create_top_bar(lv_obj_t* parent) {
     setup_flex_row(bar, 12, 10);
     lv_obj_set_style_bg_opa(bar, LV_OPA_60, 0);
 
+    // 1. Logo区域（左侧）
+    lv_obj_t* logo_area = lv_obj_create(bar);
+    lv_obj_set_size(logo_area, 150, LV_PCT(100));
+    lv_obj_set_style_bg_opa(logo_area, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(logo_area, 5, 0);
+    setup_flex_row(logo_area, 5, 5);
+    
+    // Logo图标（占位，使用文字代替）
+    lv_obj_t* logo_icon = lv_label_create(logo_area);
+    lv_label_set_text(logo_icon, "👁");  // 眼睛图标占位
+    lv_obj_set_style_text_font(logo_icon, LV_FONT_DEFAULT, 0);
+    
+    // Logo文字
+    lv_obj_t* logo_text = lv_label_create(logo_area);
+    lv_label_set_text(logo_text, "雷石官方正版");
+    lv_obj_set_style_text_color(logo_text, lv_color_white(), 0);
+    lv_obj_set_flex_grow(logo_text, 1);
+
+    // 2. 导航标签区域（中间）
+    lv_obj_t* nav_area = lv_obj_create(bar);
+    lv_obj_set_flex_grow(nav_area, 1);  // 占据剩余空间
+    lv_obj_set_height(nav_area, LV_PCT(100));
+    setup_flex_row(nav_area, 5, 5);
+    lv_obj_set_style_bg_opa(nav_area, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(nav_area, 5, 0);
+
     auto add_btn = [&](const char* txt, int idx) {
-        lv_obj_t* btn = lv_btn_create(bar);
+        lv_obj_t* btn = lv_btn_create(nav_area);
         lv_obj_add_style(btn, &style_btn, 0);
         lv_obj_add_style(btn, &style_btn_pressed, LV_STATE_PRESSED);
         lv_obj_add_style(btn, &style_focus, LV_STATE_FOCUSED);
         lv_obj_set_height(btn, LV_PCT(100));
+        // 如果是首页（idx=0），设置选中样式（蓝色高亮，更明显）
+        if (idx == 0) {
+            lv_obj_set_style_bg_color(btn, lv_color_hex(0x4F7BFF), 0);
+            lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);  // 确保完全不透明
+            lv_obj_set_style_text_color(btn, lv_color_white(), 0);  // 白色文字
+        } else {
+            // 未选中的标签使用半透明背景
+            lv_obj_set_style_bg_opa(btn, LV_OPA_50, 0);
+        }
         lv_obj_t* label = lv_label_create(btn);
         lv_label_set_text(label, txt);
         lv_obj_center(label);
@@ -234,31 +276,35 @@ static lv_obj_t* create_top_bar(lv_obj_t* parent) {
         return btn;
     };
 
+    // 根据设计稿：只保留"首页"和"历史记录"两个Tab
+    // 注意：不实现"猜你喜欢"和"我的收藏"（用户要求）
     add_btn("首页", 0);
     add_btn("历史记录", 1);
-    add_btn("搜索", 2);
-    // 占位弹性伸展，将 VIP 推到右侧
-    lv_obj_t* spacer = lv_obj_create(bar);
-    lv_obj_set_size(spacer, 1, 1);
-    lv_obj_set_style_bg_opa(spacer, LV_OPA_TRANSP, 0);
-    lv_obj_set_flex_grow(spacer, 1);
-
-    // VIP 按钮
-    lv_obj_t* vip = lv_btn_create(bar);
-    lv_obj_add_style(vip, &style_vip, 0);
-    lv_obj_add_style(vip, &style_focus, LV_STATE_FOCUSED);
-    lv_obj_set_height(vip, LV_PCT(100));
-    lv_obj_t* vip_lbl = lv_label_create(vip);
-    lv_label_set_text(vip_lbl, "VIP会员中心");
-    lv_obj_center(vip_lbl);
+    
+    // 3. VIP按钮（右侧）
+    lv_obj_t* vip_btn = lv_btn_create(bar);
+    lv_obj_add_style(vip_btn, &style_vip, 0);
+    lv_obj_add_style(vip_btn, &style_focus, LV_STATE_FOCUSED);
+    lv_obj_set_size(vip_btn, 120, LV_PCT(100));
+    lv_obj_t* vip_label = lv_label_create(vip_btn);
+    lv_label_set_text(vip_label, "VIP会员中心");
+    lv_obj_center(vip_label);
+    // TODO: 添加VIP按钮点击事件
+    
     return bar;
 }
 
 static lv_obj_t* create_content_area(lv_obj_t* parent) {
     lv_obj_t* area = lv_obj_create(parent);
-    lv_obj_set_size(area, LV_PCT(100), LV_PCT(100));
+    // 内容区域应该占据剩余空间（top_bar 50px + bottom 80px 之后的空间）
+    lv_obj_set_flex_grow(area, 1);  // 关键：使用 flex_grow 占据剩余空间
+    lv_obj_set_width(area, LV_PCT(100));
+    // 高度不需要设置，由 flex_grow 自动计算
     setup_flex_col(area, 6, 6);
     lv_obj_set_scroll_dir(area, LV_DIR_VER);
+    // 确保内容区域可见
+    lv_obj_set_style_bg_opa(area, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(area, LV_OBJ_FLAG_HIDDEN);
     return area;
 }
 
@@ -342,9 +388,10 @@ static void on_player_btn_click(lv_event_t* e) {
             }
             break;
         }
-        case 7: {  // 返回
-            // 返回到主屏幕（使用公共函数）
-            on_back_to_main(nullptr);
+        case 7: {  // 退出
+            // 退出应用程序
+            PLOGI << "用户点击退出按钮";
+            // TODO: 实现退出逻辑（可能需要发送退出事件或设置退出标志）
             break;
         }
     }
@@ -364,7 +411,7 @@ lv_obj_t* create_player_bar(lv_obj_t* parent) {
         LV_SYMBOL_REFRESH " 重唱",
         LV_SYMBOL_SETTINGS " 调音",
         LV_SYMBOL_SETTINGS " 设置",
-        LV_SYMBOL_CLOSE " 返回"
+        LV_SYMBOL_CLOSE " 退出"  // 修复：应该是"退出"而不是"返回"
     };
     
     for (size_t i = 0; i < sizeof(labels) / sizeof(labels[0]); i++) {
@@ -372,9 +419,49 @@ lv_obj_t* create_player_bar(lv_obj_t* parent) {
         lv_obj_add_style(btn, &style_btn, 0);
         lv_obj_add_style(btn, &style_btn_pressed, LV_STATE_PRESSED);
         lv_obj_add_style(btn, &style_focus, LV_STATE_FOCUSED);
-        lv_obj_t* label = lv_label_create(btn);
-        lv_label_set_text(label, labels[i]);
-        lv_obj_center(label);
+        
+        // 特殊处理"已点"按钮：添加红色圆圈数字显示
+        if (i == 0) {
+            // 创建容器用于显示文字和数字圆圈
+            lv_obj_t* container = lv_obj_create(btn);
+            lv_obj_set_size(container, LV_PCT(100), LV_PCT(100));
+            lv_obj_set_style_bg_opa(container, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(container, 0, 0);
+            lv_obj_set_style_pad_all(container, 0, 0);
+            setup_flex_col(container, 0, 0);
+            
+            // 文字标签
+            lv_obj_t* label = lv_label_create(container);
+            lv_label_set_text(label, "已点");
+            lv_obj_set_style_text_color(label, lv_color_white(), 0);
+            lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, 0);
+            
+            // 红色圆圈数字（显示已点数量）
+            auto& queue = ktv::services::QueueService::getInstance();
+            int queue_count = queue.size();
+            if (queue_count > 0) {
+                lv_obj_t* badge = lv_obj_create(container);
+                lv_obj_set_size(badge, 20, 20);
+                lv_obj_set_style_bg_opa(badge, LV_OPA_COVER, 0);
+                lv_obj_set_style_bg_color(badge, lv_color_hex(0xFF0000), 0);  // 红色
+                lv_obj_set_style_radius(badge, LV_RADIUS_CIRCLE, 0);
+                lv_obj_set_style_border_width(badge, 0, 0);
+                lv_obj_align(badge, LV_ALIGN_TOP_RIGHT, -5, 5);
+                
+                lv_obj_t* badge_label = lv_label_create(badge);
+                char count_text[8];
+                std::snprintf(count_text, sizeof(count_text), "%d", queue_count);
+                lv_label_set_text(badge_label, count_text);
+                lv_obj_set_style_text_color(badge_label, lv_color_white(), 0);
+                lv_obj_center(badge_label);
+            }
+        } else {
+            // 其他按钮正常显示
+            lv_obj_t* label = lv_label_create(btn);
+            lv_label_set_text(label, labels[i]);
+            lv_obj_center(label);
+        }
+        
         // 为每个按钮添加事件处理，传递按钮ID
         lv_obj_add_event_cb(btn, on_player_btn_click, LV_EVENT_CLICKED,
                             reinterpret_cast<void*>(static_cast<intptr_t>(i)));
@@ -517,45 +604,325 @@ static void create_song_list_item(lv_obj_t* list, const char* title, const char*
     create_song_list_item_impl(list, item);
 }
 
-void show_home_tab(lv_obj_t* content_area) {
-    lv_obj_clean(content_area);
-    setup_flex_row(content_area, 6, 6);
-
-    lv_obj_t* list = lv_obj_create(content_area);
-    lv_obj_set_flex_grow(list, 1);
-    lv_obj_set_size(list, LV_PCT(100), LV_PCT(100));
-    setup_flex_col(list, 6, 6);
-    lv_obj_set_scroll_dir(list, LV_DIR_VER);
-
-    // 先显示Mock数据，确保UI立即响应（离线优先策略）
-    for (const auto& mock_s : ktv::mock::hotSongs()) {
-        ktv::services::SongItem s;
-        s.id = mock_s.title;
-        s.title = mock_s.title;
-        s.artist = mock_s.artist;
-        create_song_list_item(list, s);
+// 创建视频播放器占位（唯一的播放器控件，用于首页中间）
+static lv_obj_t* create_video_player_placeholder(lv_obj_t* parent, const char* title, bool show_qrcode = false) {
+    lv_obj_t* player = lv_obj_create(parent);
+    lv_obj_set_flex_grow(player, 1);
+    lv_obj_set_height(player, 400);
+    lv_obj_set_style_bg_opa(player, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(player, 10, 0);
+    lv_obj_set_style_pad_all(player, 10, 0);
+    
+    // 播放器使用深色背景
+    lv_obj_set_style_bg_color(player, lv_color_hex(0x2D234F), 0);  // 深色背景
+    
+    // 标题文字（占位）
+    lv_obj_t* title_label = lv_label_create(player);
+    lv_label_set_text(title_label, title);
+    lv_obj_set_style_text_color(title_label, lv_color_white(), 0);
+    lv_obj_align(title_label, LV_ALIGN_BOTTOM_MID, 0, -10);
+    
+    // 添加二维码占位（微信扫码点歌）
+    if (show_qrcode) {
+        lv_obj_t* qr_label = lv_label_create(player);
+        lv_label_set_text(qr_label, "微信扫码点歌");
+        lv_obj_set_style_text_color(qr_label, lv_color_white(), 0);
+        lv_obj_align(qr_label, LV_ALIGN_TOP_RIGHT, -10, 10);
     }
-    PLOGI << "Home tab: displayed mock data immediately";
+    
+    // 播放器控件本身不可点击（它是播放器，不是按钮）
+    // 但可以添加播放控制事件（暂停/播放等）
+    
+    return player;
+}
 
-    // 异步加载真实数据（后台线程执行，不阻塞UI）
-    auto& song_service = ktv::services::SongService::getInstance();
-    song_service.listSongsOfflineFirstAsync(1, 20, [list](const std::vector<ktv::services::SongItem>& songs) {
-        // 这个回调在UI线程执行，可以安全地更新LVGL对象
-        if (!songs.empty()) {
-            // 清空Mock数据，显示真实数据
-            lv_obj_clean(list);
-            for (const auto& s : songs) {
-                create_song_list_item(list, s);
-            }
-            PLOGI << "Home tab: updated with " << songs.size() << " songs from cache/network";
-        } else {
-            // 如果异步加载也失败，保持Mock数据
-            PLOGI << "Home tab: async load failed, keeping mock data";
-        }
-    });
+// 创建排行榜面板（可点击）
+static lv_obj_t* create_chart_panel(lv_obj_t* parent, const char* title, uint32_t bg_color, const char* songs[][2], int song_count) {
+    lv_obj_t* panel = lv_obj_create(parent);
+    lv_obj_set_size(panel, LV_PCT(100), 200);
+    lv_obj_set_style_bg_opa(panel, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(panel, lv_color_hex(bg_color), 0);
+    lv_obj_set_style_radius(panel, 10, 0);
+    lv_obj_set_style_pad_all(panel, 10, 0);
+    setup_flex_col(panel, 5, 5);
+    
+    // 添加点击效果（按下时背景色变深）
+    lv_obj_set_style_bg_color(panel, lv_color_hex(bg_color), LV_STATE_PRESSED);
+    lv_obj_set_style_bg_opa(panel, LV_OPA_80, LV_STATE_PRESSED);
+    
+    // 标题
+    lv_obj_t* title_label = lv_label_create(panel);
+    lv_label_set_text(title_label, title);
+    lv_obj_set_style_text_color(title_label, lv_color_white(), 0);
+    lv_obj_set_style_text_font(title_label, LV_FONT_DEFAULT, 0);
+    
+    // 歌曲列表
+    for (int i = 0; i < song_count && songs[i][0]; i++) {
+        lv_obj_t* song_item = lv_label_create(panel);
+        char text[128];
+        std::snprintf(text, sizeof(text), "%d. %s - %s", i + 1, songs[i][0], songs[i][1]);
+        lv_label_set_text(song_item, text);
+        lv_obj_set_style_text_color(song_item, lv_color_white(), 0);
+    }
+    
+    return panel;
+}
 
-    // 翻页指示器（使用公共函数）
-    create_page_indicator(content_area, "1/10");
+// 创建大按钮（带渐变背景和图标）
+static lv_obj_t* create_large_category_btn(lv_obj_t* parent, const char* text, uint32_t color_from, uint32_t color_to, const char* icon, Page target_page) {
+    lv_obj_t* btn = lv_obj_create(parent);
+    lv_obj_set_flex_grow(btn, 1);
+    lv_obj_set_height(btn, 150);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(color_from), 0);
+    lv_obj_set_style_bg_grad_color(btn, lv_color_hex(color_to), 0);
+    lv_obj_set_style_bg_grad_dir(btn, LV_GRAD_DIR_VER, 0);
+    lv_obj_set_style_radius(btn, 15, 0);
+    lv_obj_set_style_pad_all(btn, 15, 0);
+    setup_flex_col(btn, 5, 5);
+    
+    // 图标
+    if (icon) {
+        lv_obj_t* icon_label = lv_label_create(btn);
+        lv_label_set_text(icon_label, icon);
+        lv_obj_set_style_text_color(icon_label, lv_color_white(), 0);
+        lv_obj_set_style_text_font(icon_label, LV_FONT_DEFAULT, 0);
+    }
+    
+    // 文字
+    lv_obj_t* text_label = lv_label_create(btn);
+    lv_label_set_text(text_label, text);
+    lv_obj_set_style_text_color(text_label, lv_color_white(), 0);
+    lv_obj_set_style_text_font(text_label, LV_FONT_DEFAULT, 0);
+    lv_obj_set_style_text_align(text_label, LV_TEXT_ALIGN_CENTER, 0);
+    
+    // 点击事件（使用静态数组存储页面类型）
+    static Page page_storage[5] = {Page::Home, Page::Home, Page::Home, Page::Home, Page::Home};
+    static int btn_index = 0;
+    if (btn_index < 5) {
+        page_storage[btn_index] = target_page;
+        int idx = btn_index++;
+        lv_obj_add_event_cb(btn, [](lv_event_t* e) {
+            int idx = *static_cast<int*>(lv_event_get_user_data(e));
+            static Page page_storage[5] = {Page::Artist, Page::Ranking, Page::Category, Page::HotSongs, Page::Home};
+            PageManager::getInstance().switchTo(page_storage[idx]);
+        }, LV_EVENT_CLICKED, &idx);
+    }
+    
+    return btn;
+}
+
+void show_home_tab(lv_obj_t* content_area) {
+    if (!content_area) {
+        PLOGE << "show_home_tab: content_area is NULL!";
+        return;
+    }
+    
+    // 验证 content_area 的大小
+    lv_coord_t area_w = lv_obj_get_width(content_area);
+    lv_coord_t area_h = lv_obj_get_height(content_area);
+    printf("[show_home_tab] Content area size: %dx%d\n", (int)area_w, (int)area_h);
+    fflush(stdout);
+    
+    lv_obj_clean(content_area);
+    // 按照设计稿：首页内容分为上下两行
+    setup_flex_col(content_area, 10, 10);
+    lv_obj_set_scroll_dir(content_area, LV_DIR_VER);
+    lv_obj_set_style_bg_opa(content_area, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(content_area, lv_color_hex(0x5F4B9A), 0);  // 紫色背景
+    lv_obj_clear_flag(content_area, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_opa(content_area, LV_OPA_COVER, 0);  // 确保不透明
+    lv_obj_set_style_pad_all(content_area, 10, 0);
+    
+    // 强制刷新内容区域
+    lv_obj_invalidate(content_area);
+    
+    printf("[show_home_tab] Home tab UI elements created\n");
+    fflush(stdout);
+
+    // ========== 上行：左大卡 + 中间播放器 + 右侧双榜单 ==========
+    lv_obj_t* row_top = lv_obj_create(content_area);
+    lv_obj_set_size(row_top, LV_PCT(100), 420);
+    setup_flex_row(row_top, 10, 10);
+    lv_obj_set_style_bg_opa(row_top, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(row_top, 0, 0);
+    
+    // 左侧：大卡片（"歌名"入口）
+    lv_obj_t* card_songname = lv_obj_create(row_top);
+    lv_obj_set_size(card_songname, 260, 420);  // 固定宽度，近似设计稿比例
+    lv_obj_set_style_bg_opa(card_songname, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(card_songname, lv_color_hex(0x7C6BCB), 0);  // 紫色背景
+    lv_obj_set_style_radius(card_songname, 10, 0);
+    lv_obj_set_style_pad_all(card_songname, 20, 0);
+    setup_flex_col(card_songname, 10, 10);
+    
+    // 添加点击效果
+    lv_obj_set_style_bg_color(card_songname, lv_color_hex(0x6E5CA8), LV_STATE_PRESSED);
+    
+    // 歌名文字（大字体）
+    lv_obj_t* songname_label = lv_label_create(card_songname);
+    lv_label_set_text(songname_label, "歌名");
+    lv_obj_set_style_text_color(songname_label, lv_color_white(), 0);
+    lv_obj_set_style_text_font(songname_label, LV_FONT_DEFAULT, 0);
+    lv_obj_align(songname_label, LV_ALIGN_CENTER, 0, -20);
+    
+    // 提示文案
+    lv_obj_t* hint_label = lv_label_create(card_songname);
+    lv_label_set_text(hint_label, "点击点歌");
+    lv_obj_set_style_text_color(hint_label, lv_color_hex(0xC8C9D4), 0);  // 浅灰色
+    lv_obj_set_style_text_font(hint_label, LV_FONT_DEFAULT, 0);
+    lv_obj_align(hint_label, LV_ALIGN_CENTER, 0, 20);
+    
+    // 点击事件：可以跳转到搜索页面或显示点歌界面
+    lv_obj_add_event_cb(card_songname, [](lv_event_t* e) {
+        // TODO: 点击"歌名"卡片可以跳转到搜索页面或显示点歌界面
+        PageManager::getInstance().switchTo(Page::Search);
+        PLOGI << "点击歌名卡片，跳转到搜索页面";
+    }, LV_EVENT_CLICKED, nullptr);
+    
+    // 中间：播放器占位区域（唯一的播放器控件，带二维码）
+    lv_obj_t* player_area = lv_obj_create(row_top);
+    lv_obj_set_flex_grow(player_area, 1);  // 占据剩余空间
+    lv_obj_set_height(player_area, 420);
+    lv_obj_set_style_bg_opa(player_area, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(player_area, lv_color_hex(0x2D234F), 0);  // 深色背景
+    lv_obj_set_style_radius(player_area, 10, 0);
+    lv_obj_set_style_pad_all(player_area, 10, 0);
+    
+    // 播放器标题文字（占位）
+    lv_obj_t* player_title = lv_label_create(player_area);
+    lv_label_set_text(player_title, "成龍 / 陳淑梅");
+    lv_obj_set_style_text_color(player_title, lv_color_white(), 0);
+    lv_obj_align(player_title, LV_ALIGN_BOTTOM_MID, 0, -10);
+    
+    // 二维码占位（微信扫码点歌）
+    lv_obj_t* qr_label = lv_label_create(player_area);
+    lv_label_set_text(qr_label, "微信扫码点歌");
+    lv_obj_set_style_text_color(qr_label, lv_color_white(), 0);
+    lv_obj_align(qr_label, LV_ALIGN_TOP_RIGHT, -10, 10);
+    
+    // 右侧：竖向榜单容器
+    lv_obj_t* right_col = lv_obj_create(row_top);
+    lv_obj_set_size(right_col, 260, 420);  // 固定宽度，与左侧对称
+    setup_flex_col(right_col, 10, 10);
+    lv_obj_set_style_bg_opa(right_col, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(right_col, 0, 0);
+    
+    // 情歌对唱榜（可点击，点击后跳转到排行榜页面）
+    const char* love_songs[][2] = {
+        {"偏爱(HD)", "张芸京"},
+        {"选择(HD)", "林子祥/叶倩文"},
+        {"广岛之恋(HD)", "莫文蔚/张洪量"}
+    };
+    lv_obj_t* panel_love = create_chart_panel(right_col, "情歌对唱榜", 0xE6F3FF, love_songs, 3);
+    lv_obj_add_event_cb(panel_love, [](lv_event_t* e) {
+        PageManager::getInstance().switchTo(Page::Ranking);
+        PLOGI << "点击情歌对唱榜，跳转到排行榜页面";
+    }, LV_EVENT_CLICKED, nullptr);
+    
+    // 抖音热唱榜（可点击，点击后跳转到热歌榜页面）
+    const char* douyin_songs[][2] = {
+        {"最后的人(HD)", "杨小壮"},
+        {"孤勇者(HD)", "陈奕迅"},
+        {"成都-歌手(HD)", "赵雷"}
+    };
+    lv_obj_t* panel_douyin = create_chart_panel(right_col, "抖音热唱榜", 0xFFE6F0, douyin_songs, 3);
+    lv_obj_add_event_cb(panel_douyin, [](lv_event_t* e) {
+        PageManager::getInstance().switchTo(Page::HotSongs);
+        PLOGI << "点击抖音热唱榜，跳转到热歌榜页面";
+    }, LV_EVENT_CLICKED, nullptr);
+
+    // ========== 下行：一排入口卡片（横向排列） ==========
+    lv_obj_t* row_bottom = lv_obj_create(content_area);
+    lv_obj_set_size(row_bottom, LV_PCT(100), 140);
+    setup_flex_row(row_bottom, 10, 10);
+    lv_obj_set_style_bg_opa(row_bottom, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(row_bottom, 0, 0);
+    
+    // 歌手按钮（粉色到紫色渐变，右侧有3个圆形头像）
+    lv_obj_t* artist_btn = lv_obj_create(row_bottom);
+    lv_obj_set_size(artist_btn, 220, 120);  // 固定尺寸，横向排列
+    lv_obj_set_style_bg_opa(artist_btn, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(artist_btn, lv_color_hex(0xFF6B9D), 0);
+    lv_obj_set_style_bg_grad_color(artist_btn, lv_color_hex(0x7C6BCB), 0);
+    lv_obj_set_style_bg_grad_dir(artist_btn, LV_GRAD_DIR_VER, 0);
+    lv_obj_set_style_radius(artist_btn, 15, 0);
+    lv_obj_set_style_pad_all(artist_btn, 15, 0);
+    setup_flex_row(artist_btn, 5, 5);
+    
+    // 左侧文字和图标
+    lv_obj_t* artist_left = lv_obj_create(artist_btn);
+    lv_obj_set_flex_grow(artist_left, 1);
+    lv_obj_set_size(artist_left, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_opa(artist_left, LV_OPA_TRANSP, 0);
+    setup_flex_col(artist_left, 5, 5);
+    
+    lv_obj_t* artist_icon = lv_label_create(artist_left);
+    lv_label_set_text(artist_icon, "👤");
+    lv_obj_set_style_text_color(artist_icon, lv_color_white(), 0);
+    
+    lv_obj_t* artist_text = lv_label_create(artist_left);
+    lv_label_set_text(artist_text, "歌手");
+    lv_obj_set_style_text_color(artist_text, lv_color_white(), 0);
+    
+    // 右侧3个圆形头像（占位）
+    lv_obj_t* artist_right = lv_obj_create(artist_btn);
+    lv_obj_set_size(artist_right, 60, LV_PCT(100));
+    lv_obj_set_style_bg_opa(artist_right, LV_OPA_TRANSP, 0);
+    setup_flex_row(artist_right, 3, 3);
+    
+    for (int i = 0; i < 3; i++) {
+        lv_obj_t* avatar = lv_obj_create(artist_right);
+        lv_obj_set_size(avatar, 18, 18);
+        lv_obj_set_style_bg_opa(avatar, LV_OPA_COVER, 0);
+        lv_obj_set_style_bg_color(avatar, lv_color_hex(0xCCCCCC), 0);  // 灰色占位
+        lv_obj_set_style_radius(avatar, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_border_width(avatar, 2, 0);
+        lv_obj_set_style_border_color(avatar, lv_color_white(), 0);
+    }
+    
+    // 点击事件
+    static Page artist_page = Page::Artist;
+    lv_obj_add_event_cb(artist_btn, [](lv_event_t* e) {
+        PageManager::getInstance().switchTo(Page::Artist);
+    }, LV_EVENT_CLICKED, &artist_page);
+    
+    // 排行榜按钮（粉色到红色渐变）
+    lv_obj_t* ranking_btn = create_large_category_btn(row_bottom, "排行榜", 0xFF6B9D, 0xFF4444, "🏆", Page::Ranking);
+    lv_obj_set_size(ranking_btn, 220, 120);
+    
+    // 分类按钮（蓝色到浅蓝渐变）
+    lv_obj_t* category_btn = create_large_category_btn(row_bottom, "分类", 0x4F7BFF, 0x6E8FFF, "📁", Page::Category);
+    lv_obj_set_size(category_btn, 220, 120);
+    
+    // 热歌榜按钮（粉色到红色渐变）
+    lv_obj_t* hotsongs_btn = create_large_category_btn(row_bottom, "热歌榜", 0xFF6B9D, 0xFF4444, "⭐", Page::HotSongs);
+    lv_obj_set_size(hotsongs_btn, 220, 120);
+    
+    // 免费专区按钮（蓝色到紫色渐变，两行文字）
+    lv_obj_t* free_btn = lv_obj_create(row_bottom);
+    lv_obj_set_size(free_btn, 220, 120);
+    lv_obj_set_style_bg_opa(free_btn, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(free_btn, lv_color_hex(0x4F7BFF), 0);
+    lv_obj_set_style_bg_grad_color(free_btn, lv_color_hex(0x7C6BCB), 0);
+    lv_obj_set_style_bg_grad_dir(free_btn, LV_GRAD_DIR_VER, 0);
+    lv_obj_set_style_radius(free_btn, 15, 0);
+    lv_obj_set_style_pad_all(free_btn, 15, 0);
+    setup_flex_col(free_btn, 5, 5);
+    
+    lv_obj_t* free_icon = lv_label_create(free_btn);
+    lv_label_set_text(free_icon, "✨");
+    lv_obj_set_style_text_color(free_icon, lv_color_white(), 0);
+    
+    lv_obj_t* free_text1 = lv_label_create(free_btn);
+    lv_label_set_text(free_text1, "免费专区");
+    lv_obj_set_style_text_color(free_text1, lv_color_white(), 0);
+    
+    lv_obj_t* free_text2 = lv_label_create(free_btn);
+    lv_label_set_text(free_text2, "即刻开唱");
+    lv_obj_set_style_text_color(free_text2, lv_color_white(), 0);
+    
+    PLOGI << "Home tab: displayed according to design (left card + center player + right charts + bottom menu cards)";
 }
 
 void show_history_tab(lv_obj_t* content_area) {
@@ -654,12 +1021,14 @@ void show_search_page(lv_obj_t* content_area) {
                 }
                 PLOGI << "Search: updated with " << results.size() << " results for: " << keyword;
             } else if (!keyword.empty()) {
-                // 如果异步搜索失败，显示未找到
+                // 如果异步搜索失败，显示提示信息
+                // 这是正常现象（网络不通、离线、服务器异常等）
                 lv_obj_clean(list);
                 ktv::services::SongItem empty_item;
-                empty_item.title = "未找到";
-                empty_item.artist = "请换个关键词";
+                empty_item.title = "网络不可用";
+                empty_item.artist = "请检查网络连接或使用缓存数据";
                 create_song_list_item(list, empty_item);
+                PLOGI << "Search failed (network unavailable or offline), showing offline message";
             }
         });
     };
@@ -698,6 +1067,114 @@ void show_search_page(lv_obj_t* content_area) {
 
     // 右侧翻页指示器（使用公共函数）
     create_page_indicator(content_area, "1/5");
+}
+
+// 显示分类浏览页面
+void show_category_page(lv_obj_t* content_area) {
+    lv_obj_clean(content_area);
+    setup_flex_col(content_area, 6, 6);
+    
+    // 标题栏（带返回按钮）
+    lv_obj_t* title_bar = create_title_bar(content_area, "分类浏览");
+    
+    // 歌曲列表
+    lv_obj_t* list = lv_obj_create(content_area);
+    lv_obj_set_flex_grow(list, 1);
+    lv_obj_set_size(list, LV_PCT(100), LV_PCT(100));
+    setup_flex_col(list, 6, 6);
+    lv_obj_set_scroll_dir(list, LV_DIR_VER);
+    
+    // 显示Mock数据（TODO: 后续替换为真实分类数据）
+    for (const auto& mock_s : ktv::mock::hotSongs()) {
+        ktv::services::SongItem s;
+        s.id = mock_s.title;
+        s.title = mock_s.title;
+        s.artist = mock_s.artist;
+        create_song_list_item(list, s);
+    }
+    
+    PLOGI << "Category page: displayed";
+}
+
+// 显示排行榜页面
+void show_ranking_page(lv_obj_t* content_area) {
+    lv_obj_clean(content_area);
+    setup_flex_col(content_area, 6, 6);
+    
+    // 标题栏（带返回按钮）
+    lv_obj_t* title_bar = create_title_bar(content_area, "排行榜");
+    
+    // 歌曲列表
+    lv_obj_t* list = lv_obj_create(content_area);
+    lv_obj_set_flex_grow(list, 1);
+    lv_obj_set_size(list, LV_PCT(100), LV_PCT(100));
+    setup_flex_col(list, 6, 6);
+    lv_obj_set_scroll_dir(list, LV_DIR_VER);
+    
+    // 显示Mock数据（TODO: 后续替换为真实排行榜数据）
+    for (const auto& mock_s : ktv::mock::hotSongs()) {
+        ktv::services::SongItem s;
+        s.id = mock_s.title;
+        s.title = mock_s.title;
+        s.artist = mock_s.artist;
+        create_song_list_item(list, s);
+    }
+    
+    PLOGI << "Ranking page: displayed";
+}
+
+// 显示歌手页面
+void show_artist_page(lv_obj_t* content_area) {
+    lv_obj_clean(content_area);
+    setup_flex_col(content_area, 6, 6);
+    
+    // 标题栏（带返回按钮）
+    lv_obj_t* title_bar = create_title_bar(content_area, "歌手");
+    
+    // 歌曲列表
+    lv_obj_t* list = lv_obj_create(content_area);
+    lv_obj_set_flex_grow(list, 1);
+    lv_obj_set_size(list, LV_PCT(100), LV_PCT(100));
+    setup_flex_col(list, 6, 6);
+    lv_obj_set_scroll_dir(list, LV_DIR_VER);
+    
+    // 显示Mock数据（TODO: 后续替换为真实歌手数据）
+    for (const auto& mock_s : ktv::mock::hotSongs()) {
+        ktv::services::SongItem s;
+        s.id = mock_s.title;
+        s.title = mock_s.title;
+        s.artist = mock_s.artist;
+        create_song_list_item(list, s);
+    }
+    
+    PLOGI << "Artist page: displayed";
+}
+
+// 显示热歌榜页面
+void show_hot_songs_page(lv_obj_t* content_area) {
+    lv_obj_clean(content_area);
+    setup_flex_col(content_area, 6, 6);
+    
+    // 标题栏（带返回按钮）
+    lv_obj_t* title_bar = create_title_bar(content_area, "热歌榜");
+    
+    // 歌曲列表
+    lv_obj_t* list = lv_obj_create(content_area);
+    lv_obj_set_flex_grow(list, 1);
+    lv_obj_set_size(list, LV_PCT(100), LV_PCT(100));
+    setup_flex_col(list, 6, 6);
+    lv_obj_set_scroll_dir(list, LV_DIR_VER);
+    
+    // 显示Mock数据（TODO: 后续替换为真实热歌榜数据）
+    for (const auto& mock_s : ktv::mock::hotSongs()) {
+        ktv::services::SongItem s;
+        s.id = mock_s.title;
+        s.title = mock_s.title;
+        s.artist = mock_s.artist;
+        create_song_list_item(list, s);
+    }
+    
+    PLOGI << "Hot songs page: displayed";
 }
 
 // 已点列表页面删除按钮事件
@@ -966,39 +1443,31 @@ lv_obj_t* create_main_screen() {
     // 移除默认的填充，确保内容填满整个区域
     lv_obj_set_style_pad_all(scr, 0, 0);
     
-    // 设置布局
-    setup_flex_col(scr, 6, 6);
+    // 设置布局：垂直布局，顶部菜单栏、内容区、底部控制栏
+    setup_flex_col(scr, 0, 0);  // 主屏幕不需要间距，子元素之间紧密排列
     
-    // 创建一个非常醒目的测试标签，确保UI渲染可见
-    // 使用大号红色文字，带背景框，居中显示
-    lv_obj_t* test_container = lv_obj_create(scr);
-    lv_obj_set_size(test_container, 600, 150);
-    lv_obj_align(test_container, LV_ALIGN_CENTER, 0, -200);
-    lv_obj_set_style_bg_color(test_container, lv_color_hex(0xFF0000), 0);  // 红色背景
-    lv_obj_set_style_bg_opa(test_container, LV_OPA_80, 0);
-    lv_obj_set_style_border_color(test_container, lv_color_white(), 0);
-    lv_obj_set_style_border_width(test_container, 5, 0);
-    lv_obj_set_style_radius(test_container, 20, 0);
-    
-    lv_obj_t* test_label = lv_label_create(test_container);
-    lv_label_set_text(test_label, "🔥🔥🔥 KTVLV UI OK 🔥🔥🔥\nRendering Works!");
-    lv_obj_set_style_text_color(test_label, lv_color_white(), 0);
-    lv_obj_set_style_text_font(test_label, LV_FONT_DEFAULT, 0);
-    lv_obj_set_style_text_align(test_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_center(test_label);
-    
-    printf("Test label created on main screen (very visible red box)\n");
-    fflush(stdout);
+    // 移除测试标签，按照设计稿实现正式UI
 
+    // 1. 顶部菜单栏（固定高度 50px）
     lv_obj_t* top = create_top_bar(scr);
+    lv_obj_set_size(top, LV_PCT(100), 50);  // 确保固定高度
+    
+    // 2. 内容区域（占据剩余空间）
     lv_obj_t* content = create_content_area(scr);
+    
+    // 3. 底部控制栏（固定高度 80px）
     lv_obj_t* bottom = create_player_bar(scr);
+    lv_obj_set_size(bottom, LV_PCT(100), 80);  // 确保固定高度
 
     (void)top;
     (void)bottom;
 
     PageManager::getInstance().setContentArea(content);
+    
+    // ⚡ 立即显示首页内容（不等待后台初始化）
+    // 这样可以确保UI立即可见，即使后台初始化失败也不影响UI显示
     show_home_tab(content);
+    PLOGI << "Home tab displayed immediately after screen creation";
     
     // 强制刷新屏幕，确保UI可见
     // 标记整个屏幕对象及其所有子对象为无效
