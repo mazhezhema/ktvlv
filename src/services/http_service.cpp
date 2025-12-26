@@ -1,5 +1,7 @@
 #include "http_service.h"
+#include "task_service.h"
 #include <cstring>
+#include <plog/Log.h>
 
 namespace ktv::services {
 
@@ -37,8 +39,22 @@ size_t HttpService::writeCallback(void* contents, size_t size, size_t nmemb, voi
     return total;
 }
 
+CURL* HttpService::createCurlHandle() {
+    // 每次请求创建新的 curl handle，确保线程安全
+    CURL* handle = curl_easy_init();
+    if (!handle) return nullptr;
+
+    curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, writeCallback);
+    curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(handle, CURLOPT_TIMEOUT, static_cast<long>(timeout_seconds_));
+    return handle;
+}
+
 bool HttpService::get(const char* url, HttpResponse& response) {
-    if (!curl_handle_) return false;
+    // 注意：此方法仅用于后台线程，主线程请使用 getAsync
+    CURL* handle = createCurlHandle();
+    if (!handle) return false;
+
     response = {};
     char full[512]{0};
     if (url[0] == '/') {
@@ -46,16 +62,21 @@ bool HttpService::get(const char* url, HttpResponse& response) {
     } else {
         std::snprintf(full, sizeof(full), "%s", url);
     }
-    curl_easy_setopt(curl_handle_, CURLOPT_URL, full);
-    curl_easy_setopt(curl_handle_, CURLOPT_WRITEDATA, &response);
-    CURLcode res = curl_easy_perform(curl_handle_);
-    if (res != CURLE_OK) return false;
-    curl_easy_getinfo(curl_handle_, CURLINFO_RESPONSE_CODE, &response.status_code);
-    return response.status_code == 200;
+    curl_easy_setopt(handle, CURLOPT_URL, full);
+    curl_easy_setopt(handle, CURLOPT_WRITEDATA, &response);
+    CURLcode res = curl_easy_perform(handle);
+    if (res == CURLE_OK) {
+        curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &response.status_code);
+    }
+    curl_easy_cleanup(handle);
+    return res == CURLE_OK && response.status_code == 200;
 }
 
 bool HttpService::post(const char* url, const char* json_data, HttpResponse& response) {
-    if (!curl_handle_) return false;
+    // 注意：此方法仅用于后台线程，主线程请使用 postAsync
+    CURL* handle = createCurlHandle();
+    if (!handle) return false;
+
     response = {};
     char full[512]{0};
     if (url[0] == '/') {
@@ -63,19 +84,58 @@ bool HttpService::post(const char* url, const char* json_data, HttpResponse& res
     } else {
         std::snprintf(full, sizeof(full), "%s", url);
     }
-    curl_easy_setopt(curl_handle_, CURLOPT_URL, full);
-    curl_easy_setopt(curl_handle_, CURLOPT_POSTFIELDS, json_data);
-    curl_easy_setopt(curl_handle_, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(handle, CURLOPT_URL, full);
+    curl_easy_setopt(handle, CURLOPT_POSTFIELDS, json_data);
+    curl_easy_setopt(handle, CURLOPT_WRITEDATA, &response);
 
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
-    curl_easy_setopt(curl_handle_, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
 
-    CURLcode res = curl_easy_perform(curl_handle_);
+    CURLcode res = curl_easy_perform(handle);
     curl_slist_free_all(headers);
-    if (res != CURLE_OK) return false;
-    curl_easy_getinfo(curl_handle_, CURLINFO_RESPONSE_CODE, &response.status_code);
-    return response.status_code == 200;
+    if (res == CURLE_OK) {
+        curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &response.status_code);
+    }
+    curl_easy_cleanup(handle);
+    return res == CURLE_OK && response.status_code == 200;
+}
+
+void HttpService::getAsync(const std::string& url, std::function<void(bool, HttpResponse)> callback) {
+    if (!callback) {
+        PLOGW << "HttpService::getAsync: empty callback provided";
+        return;
+    }
+
+    // 在后台线程执行网络请求
+    TaskService::getInstance().runAsync([this, url, callback]() {
+        HttpResponse resp;
+        bool success = this->get(url.c_str(), resp);
+        
+        // 完成后回到UI线程执行回调
+        TaskService::getInstance().runOnUIThread([success, resp, callback]() {
+            callback(success, resp);
+        });
+    });
+}
+
+void HttpService::postAsync(const std::string& url, const std::string& json_data, 
+                            std::function<void(bool, HttpResponse)> callback) {
+    if (!callback) {
+        PLOGW << "HttpService::postAsync: empty callback provided";
+        return;
+    }
+
+    // 在后台线程执行网络请求
+    TaskService::getInstance().runAsync([this, url, json_data, callback]() {
+        HttpResponse resp;
+        bool success = this->post(url.c_str(), json_data.c_str(), resp);
+        
+        // 完成后回到UI线程执行回调
+        TaskService::getInstance().runOnUIThread([success, resp, callback]() {
+            callback(success, resp);
+        });
+    });
 }
 
 }  // namespace ktv::services
