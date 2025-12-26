@@ -86,8 +86,8 @@ void sdl_display_flush(lv_disp_drv_t* disp_drv, const lv_area_t* area, lv_color_
     static int flush_count = 0;
     flush_count++;
     
-    // 前10次 flush 都打印详细信息，之后只打印前3次
-    if (flush_count <= 10 || flush_count <= 3) {
+    // 前10次 flush 都打印详细信息
+    if (flush_count <= 10) {
         printf("SDL flush #%d CALLED: area (%d,%d) to (%d,%d), size=%dx%d\n", 
                flush_count, area->x1, area->y1, area->x2, area->y2,
                (area->x2 - area->x1 + 1), (area->y2 - area->y1 + 1));

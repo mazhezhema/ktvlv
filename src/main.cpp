@@ -486,10 +486,6 @@ int main(int argc, char* argv[]) {
         printf("Screen invalidated, calling lv_refr_now...\n");
         fflush(stdout);
         
-        // 立即刷新显示（使用保存的显示驱动指针）
-        // 确保屏幕对象被标记为无效，然后强制刷新
-        lv_obj_invalidate(scr);
-        
         // 立即刷新整个显示
         lv_refr_now(g_display ? g_display : disp_after);
         
