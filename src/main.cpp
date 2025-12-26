@@ -320,90 +320,56 @@ int main(int argc, char* argv[]) {
         fflush(stdout);
     }
     
+    // ⚡ 关键修复：在加载屏幕之前，确保屏幕对象的大小和位置正确
+    lv_obj_set_pos(scr, 0, 0);
+    lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
+    lv_obj_clear_flag(scr, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_opa(scr, LV_OPA_COVER, 0);
+    
+    printf("Before lv_scr_load: Screen size set to %dx%d\n", (int)LV_HOR_RES_MAX, (int)LV_VER_RES_MAX);
+    fflush(stdout);
+    
     lv_scr_load(scr);
     PLOGI << "Main screen loaded";
     printf("Main screen loaded, forcing refresh...\n");
     fflush(stdout);
     
-    // 在加载后立即检查显示分辨率（看看是否被破坏）
-    // 优先使用保存的显示驱动指针
+    // ⚡ 关键修复：加载后再次确保屏幕大小正确（LVGL 可能会重置）
+    lv_obj_set_pos(scr, 0, 0);
+    lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
+    lv_obj_clear_flag(scr, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_opa(scr, LV_OPA_COVER, 0);
+    
+    // 验证屏幕对象的大小
+    lv_area_t scr_coords;
+    lv_obj_get_coords(scr, &scr_coords);
+    lv_coord_t scr_w = lv_area_get_width(&scr_coords);
+    lv_coord_t scr_h = lv_area_get_height(&scr_coords);
+    printf("Screen object after load: size=%dx%d, pos=(%d,%d)\n",
+           (int)scr_w, (int)scr_h, (int)scr_coords.x1, (int)scr_coords.y1);
+    fflush(stdout);
+    
+    // 在加载后立即检查显示分辨率
     lv_disp_t* disp_after = g_display ? g_display : lv_disp_get_default();
     if (disp_after) {
         lv_coord_t disp_w_after = lv_disp_get_hor_res(disp_after);
         lv_coord_t disp_h_after = lv_disp_get_ver_res(disp_after);
-        printf("Display resolution AFTER lv_scr_load (using %s): %dx%d\n", 
-               g_display ? "saved pointer" : "get_default()", 
+        printf("Display resolution AFTER lv_scr_load: %dx%d\n", 
                (int)disp_w_after, (int)disp_h_after);
         fflush(stdout);
         
-        if (disp_w_after != LV_HOR_RES_MAX || disp_h_after != LV_VER_RES_MAX) {
-            printf("ERROR: Display resolution corrupted after lv_scr_load!\n");
-            printf("Expected: %dx%d, Got: %dx%d\n", 
-                   (int)LV_HOR_RES_MAX, (int)LV_VER_RES_MAX, 
-                   (int)disp_w_after, (int)disp_h_after);
-            fflush(stdout);
-            
-            // 使用常量值作为后备
-            printf("WARNING: Using constant values for display: %dx%d\n", 
-                   (int)LV_HOR_RES_MAX, (int)LV_VER_RES_MAX);
-            fflush(stdout);
-            
-            // 注意：即使查询值错误，我们仍然使用保存的显示驱动指针进行刷新
-            // 因为刷新回调函数使用的是正确的分辨率
-        }
-        
-        // 使用更安全的方式获取屏幕对象的大小
-        // 直接访问坐标而不是使用可能不准确的 get_width/get_height
-        lv_area_t scr_coords;
-        lv_obj_get_coords(scr, &scr_coords);
-        lv_coord_t scr_w = lv_area_get_width(&scr_coords);
-        lv_coord_t scr_h = lv_area_get_height(&scr_coords);
-        
-        printf("Screen object coords: x1=%d, y1=%d, x2=%d, y2=%d\n",
-               (int)scr_coords.x1, (int)scr_coords.y1, 
-               (int)scr_coords.x2, (int)scr_coords.y2);
-        printf("Screen object size (from coords): %dx%d\n", (int)scr_w, (int)scr_h);
-        fflush(stdout);
-        
-        // 如果屏幕对象的大小不正确，强制设置它
-        // 这可能是由于显示驱动结构体被破坏导致的
-        if (scr_w != LV_HOR_RES_MAX || scr_h != LV_VER_RES_MAX) {
-            printf("WARNING: Screen size (%dx%d) != Expected size (%dx%d)!\n", 
-                   (int)scr_w, (int)scr_h, (int)LV_HOR_RES_MAX, (int)LV_VER_RES_MAX);
-            printf("FIXING: Force setting screen size to %dx%d\n", 
-                   (int)LV_HOR_RES_MAX, (int)LV_VER_RES_MAX);
-            fflush(stdout);
-            
-            // 强制设置屏幕对象的大小和位置
-            // 屏幕对象应该从 (0,0) 到 (width-1, height-1)
-            lv_obj_set_pos(scr, 0, 0);
-            lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
-            
-            // 再次检查坐标
-            lv_obj_get_coords(scr, &scr_coords);
-            scr_w = lv_area_get_width(&scr_coords);
-            scr_h = lv_area_get_height(&scr_coords);
-            printf("After fix: Screen object coords: x1=%d, y1=%d, x2=%d, y2=%d\n",
-                   (int)scr_coords.x1, (int)scr_coords.y1, 
-                   (int)scr_coords.x2, (int)scr_coords.y2);
-            printf("After fix: Screen object size: %dx%d\n", (int)scr_w, (int)scr_h);
-            fflush(stdout);
-        } else {
-            printf("Screen size matches expected resolution: OK\n");
-            fflush(stdout);
-        }
-        
-        printf("Display found, invalidating screen...\n");
-        fflush(stdout);
         // 标记整个屏幕需要刷新
         lv_obj_invalidate(scr);
         printf("Screen invalidated, calling lv_refr_now...\n");
         fflush(stdout);
         
-        // 立即刷新整个显示
-        lv_refr_now(g_display ? g_display : disp_after);
+        // 立即刷新整个显示（多次刷新确保显示）
+        for (int i = 0; i < 3; i++) {
+            lv_refr_now(disp_after);
+            SDL_Delay(10);  // 短暂延迟，确保刷新完成
+        }
         
-        printf("lv_refr_now completed, flush callback should have been called\n");
+        printf("lv_refr_now completed (3 times), flush callback should have been called\n");
         fflush(stdout);
         PLOGI << "Screen refreshed, size: " << LV_HOR_RES_MAX << "x" << LV_VER_RES_MAX;
     } else {

@@ -953,8 +953,12 @@ lv_obj_t* create_licence_dialog(lv_obj_t* parent) {
 
 lv_obj_t* create_main_screen() {
     // 创建屏幕对象（NULL 表示创建新的屏幕）
-    // LVGL 屏幕对象会自动填满整个显示区域，不需要手动设置大小
+    // LVGL 屏幕对象会自动填满整个显示区域，但为了确保正确，我们显式设置大小
     lv_obj_t* scr = lv_obj_create(NULL);
+    
+    // ⚡ 关键修复：显式设置屏幕对象的大小和位置，确保它填满整个显示区域
+    lv_obj_set_pos(scr, 0, 0);
+    lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
     
     // 添加背景样式
     lv_obj_add_style(scr, &style_bg, 0);
@@ -1004,14 +1008,28 @@ lv_obj_t* create_main_screen() {
     lv_obj_clear_flag(scr, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_style_opa(scr, LV_OPA_COVER, 0);
     
-    // 注意：在屏幕加载（lv_scr_load）之前，屏幕对象的大小可能还未正确设置
-    // 所以这里只记录创建时的状态，实际大小会在加载后查询
-    PLOGI << "Main screen created, expected size: " << LV_HOR_RES_MAX << "x" << LV_VER_RES_MAX;
-    printf("Main screen object created (size will be set when loaded)\n");
-    printf("Main screen: hidden=%d, opa=%d\n", 
+    // 验证屏幕对象的大小和位置
+    lv_area_t coords;
+    lv_obj_get_coords(scr, &coords);
+    lv_coord_t scr_w = lv_area_get_width(&coords);
+    lv_coord_t scr_h = lv_area_get_height(&coords);
+    
+    PLOGI << "Main screen created, size: " << scr_w << "x" << scr_h << " (expected: " << LV_HOR_RES_MAX << "x" << LV_VER_RES_MAX << ")";
+    printf("Main screen object created: size=%dx%d, pos=(%d,%d), hidden=%d, opa=%d\n", 
+           (int)scr_w, (int)scr_h,
+           (int)coords.x1, (int)coords.y1,
            lv_obj_has_flag(scr, LV_OBJ_FLAG_HIDDEN) ? 1 : 0,
            lv_obj_get_style_opa(scr, 0));
     fflush(stdout);
+    
+    // 如果大小不正确，再次强制设置
+    if (scr_w != LV_HOR_RES_MAX || scr_h != LV_VER_RES_MAX) {
+        printf("WARNING: Screen size incorrect, forcing fix: %dx%d -> %dx%d\n",
+               (int)scr_w, (int)scr_h, (int)LV_HOR_RES_MAX, (int)LV_VER_RES_MAX);
+        lv_obj_set_pos(scr, 0, 0);
+        lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
+        fflush(stdout);
+    }
     
     return scr;
 }
