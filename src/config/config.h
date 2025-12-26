@@ -8,10 +8,11 @@ namespace ktv::config {
 struct NetworkConfig {
     std::string base_url = "https://mc.ktv.com.cn";
     int timeout = 10;
-    std::string company = "mtc";
+    std::string company = "meitianchen";
     std::string app_name = "pad1";
     std::string platform = "4.4";
     std::string vn = "1.0.0";
+    std::string license;  // License 码，用于获取 token
 };
 
 // 从 ini 文件加载配置，不存在则返回默认值；返回是否成功解析文件

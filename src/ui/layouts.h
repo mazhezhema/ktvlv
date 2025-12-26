@@ -26,6 +26,15 @@ lv_obj_t* create_player_bar(lv_obj_t* parent);
 // 显示 Licence 弹窗（占位）
 lv_obj_t* create_licence_dialog(lv_obj_t* parent);
 
+// 显示已点列表页面
+lv_obj_t* create_queue_page(lv_obj_t* parent);
+
+// 显示调音页面
+lv_obj_t* create_audio_settings_page(lv_obj_t* parent);
+
+// 显示设置页面
+lv_obj_t* create_settings_page(lv_obj_t* parent);
+
 }  // namespace ktv::ui
 
 #endif  // KTVLV_UI_LAYOUTS_H

@@ -17,6 +17,7 @@ static int handler(void* user, const char* section, const char* name, const char
         else if (key == "app_name") cfg->app_name = val;
         else if (key == "platform") cfg->platform = val;
         else if (key == "vn") cfg->vn = val;
+        else if (key == "license") cfg->license = val;
     }
     return 1;
 }

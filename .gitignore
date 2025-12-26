@@ -1,8 +1,8 @@
 # Build artifacts
-build/
-build_ninja/
-build_ninja2/
-out/
+build*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
 *.o
 *.obj
 *.exe
@@ -10,6 +10,7 @@ out/
 *.so
 *.a
 *.lib
+out/
 
 # Editor/IDE
 .vscode/
