@@ -1,6 +1,7 @@
 #include "layouts.h"
 #include "page_manager.h"
 #include "ui_scale.h"
+#include "focus_manager.h"
 #include "../services/mock_data.h"
 #include "../services/song_service.h"
 #include "../events/event_bus.h"
@@ -39,6 +40,17 @@ namespace ktv::ui {
 static inline lv_coord_t kPad() { return UIScale::s(12); }
 static inline lv_coord_t kGap() { return UIScale::s(10); }
 static inline lv_coord_t kRadius() { return UIScale::s(12); }
+
+void init_ui_system(lv_coord_t screen_width, lv_coord_t screen_height) {
+    // 初始化缩放系统
+    UIScale::getInstance().initialize(screen_width, screen_height);
+    
+    // 初始化焦点管理器
+    FocusManager::getInstance().initialize();
+    
+    // 初始化UI主题
+    init_ui_theme();
+}
 
 void init_ui_theme() {
     static bool inited = false;

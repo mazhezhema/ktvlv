@@ -45,7 +45,12 @@ static void init_input() {
     lv_indev_drv_register(&kb_drv);
 }
 
-int main() {
+#ifdef __cplusplus
+extern "C"
+#endif
+int SDL_main(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     lv_init();
     ktv::logging::init();  // 控制台日志
     ktv::config::NetworkConfig net_cfg;
