@@ -1,0 +1,14 @@
+# Target labels
+ moodycamel-populate
+# Source files and their labels
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/CMakeFiles/moodycamel-populate
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/CMakeFiles/moodycamel-populate.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/CMakeFiles/moodycamel-populate-complete.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-build.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-configure.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-download.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-install.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-mkdir.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-patch.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-test.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-update.rule

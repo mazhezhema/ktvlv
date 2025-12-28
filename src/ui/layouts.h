@@ -5,6 +5,9 @@
 
 namespace ktv::ui {
 
+// 初始化UI系统（主题、缩放、焦点）
+void init_ui_system(lv_coord_t screen_width, lv_coord_t screen_height);
+
 // 初始化主题样式（颜色、圆角、阴影等）
 void init_ui_theme();
 
@@ -20,32 +23,11 @@ void show_history_tab(lv_obj_t* content_area);
 // 显示搜索页
 void show_search_page(lv_obj_t* content_area);
 
-// 显示分类浏览页面
-void show_category_page(lv_obj_t* content_area);
-
-// 显示排行榜页面
-void show_ranking_page(lv_obj_t* content_area);
-
-// 显示歌手页面
-void show_artist_page(lv_obj_t* content_area);
-
-// 显示热歌榜页面
-void show_hot_songs_page(lv_obj_t* content_area);
-
 // 显示播放浮层/控制条
 lv_obj_t* create_player_bar(lv_obj_t* parent);
 
 // 显示 Licence 弹窗（占位）
 lv_obj_t* create_licence_dialog(lv_obj_t* parent);
-
-// 显示已点列表页面
-lv_obj_t* create_queue_page(lv_obj_t* parent);
-
-// 显示调音页面
-lv_obj_t* create_audio_settings_page(lv_obj_t* parent);
-
-// 显示设置页面
-lv_obj_t* create_settings_page(lv_obj_t* parent);
 
 }  // namespace ktv::ui
 

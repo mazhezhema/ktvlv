@@ -1,0 +1,3 @@
+repository='https://github.com/lvgl/lvgl.git'
+module=''
+tag='origin'

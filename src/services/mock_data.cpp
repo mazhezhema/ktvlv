@@ -2,7 +2,6 @@
 
 namespace ktv::mock {
 
-// 默认数据：包含完整字段，作为离线时的默认填充数据
 static const std::vector<SongItem> kHotSongs = {
     {"红日", "李克勤"},
     {"上海滩", "叶丽仪"},

@@ -1,8 +1,6 @@
 # Build artifacts
-build*/
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
+build/
+out/
 *.o
 *.obj
 *.exe
@@ -10,7 +8,6 @@ cmake_install.cmake
 *.so
 *.a
 *.lib
-out/
 
 # Editor/IDE
 .vscode/

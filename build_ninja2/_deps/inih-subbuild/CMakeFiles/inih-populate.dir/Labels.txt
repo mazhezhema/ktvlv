@@ -1,0 +1,14 @@
+# Target labels
+ inih-populate
+# Source files and their labels
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/CMakeFiles/inih-populate
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/CMakeFiles/inih-populate.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/CMakeFiles/inih-populate-complete.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-build.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-configure.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-download.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-install.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-mkdir.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-patch.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-test.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-update.rule

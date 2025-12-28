@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/CMakeFiles/moodycamel-populate"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/CMakeFiles/moodycamel-populate.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/CMakeFiles/moodycamel-populate-complete.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-build.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-configure.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-download.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-install.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-mkdir.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-patch.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-test.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/moodycamel-subbuild/moodycamel-populate-prefix/src/moodycamel-populate-stamp/moodycamel-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"moodycamel-populate"
+		],
+		"name" : "moodycamel-populate"
+	}
+}

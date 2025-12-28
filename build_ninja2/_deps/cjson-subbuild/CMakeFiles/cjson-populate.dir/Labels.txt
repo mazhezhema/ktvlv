@@ -1,0 +1,14 @@
+# Target labels
+ cjson-populate
+# Source files and their labels
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/CMakeFiles/cjson-populate
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/CMakeFiles/cjson-populate.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/CMakeFiles/cjson-populate-complete.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/cjson-populate-prefix/src/cjson-populate-stamp/cjson-populate-build.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/cjson-populate-prefix/src/cjson-populate-stamp/cjson-populate-configure.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/cjson-populate-prefix/src/cjson-populate-stamp/cjson-populate-download.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/cjson-populate-prefix/src/cjson-populate-stamp/cjson-populate-install.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/cjson-populate-prefix/src/cjson-populate-stamp/cjson-populate-mkdir.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/cjson-populate-prefix/src/cjson-populate-stamp/cjson-populate-patch.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/cjson-populate-prefix/src/cjson-populate-stamp/cjson-populate-test.rule
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/cjson-subbuild/cjson-populate-prefix/src/cjson-populate-stamp/cjson-populate-update.rule

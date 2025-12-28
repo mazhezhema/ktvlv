@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>雷石点歌 - 最新自适应迭代版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 核心自适应逻辑：vw 驱动 + 最小字号保护 */
+        :root { 
+            font-size: clamp(12px, 1vw, 20px); 
+        }
+
+        body {
+            background: 
+                radial-gradient(circle at 15% 15%, rgba(167, 139, 250, 0.45) 0%, transparent 60%),
+                linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%),
+                linear-gradient(rgba(255, 255, 255, 0.05) 1.5px, transparent 1.5px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1.5px, transparent 1.5px);
+            background-size: 100% 100%, 100% 100%, 55px 55px, 55px 55px;
+            color: white;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            padding: 0.75rem 2rem;
+            overflow: hidden;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 硬件加速补丁 */
+        * { transform: translateZ(0); }
+
+        main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+        .content-matrix { 
+            flex: 1; 
+            display: grid; 
+            grid-template-columns: repeat(12, 1fr); 
+            gap: 1.5rem;
+            min-height: 0;
+        }
+
+        /* 内容卡片样式 */
+        .pop-card {
+            border-radius: 3rem;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+            transition: transform 0.2s ease;
+        }
+        .pop-card:active { transform: scale(0.98); }
+
+        /* 独立配色方案 */
+        .color-name { background: linear-gradient(135deg, #a855f7, #ec4899); } 
+        .color-artist { background: linear-gradient(135deg, #f43f5e, #fb923c); }
+        .color-rank { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+        .color-category { background: linear-gradient(135deg, #10b981, #3b82f6); }
+        .color-hot { background: linear-gradient(135deg, #d946ef, #7c3aed); }
+        .color-free { background: #111; border-color: #facc15; }
+        .list-blue { background: linear-gradient(180deg, #2563eb, #1e40af); }
+        .list-red { background: linear-gradient(180deg, #e11d48, #9f1239); }
+
+        /* 底栏：降权处理 */
+        .footer-strip {
+            height: 4rem; 
+            display: flex;
+            gap: 1.25rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            shrink: 0;
+        }
+
+        .btn-action {
+            flex: 1;
+            background: rgba(30, 27, 75, 0.85);
+            border-radius: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 800;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255,255,255,0.9);
+        }
+        .btn-action:active { background: #312e81; }
+
+        .v-text { writing-mode: vertical-lr; letter-spacing: 0.5rem; }
+    </style>
+</head>
+<body class="select-none">
+
+    <header class="flex justify-between items-center mb-4 shrink-0 px-2">
+        <div class="flex items-center space-x-10">
+            <h1 class="text-3xl font-black italic tracking-tighter">雷石官方正版</h1>
+            <div class="px-6 py-2 bg-indigo-950/40 rounded-xl font-bold text-lg border border-white/10 cursor-pointer">历史记录</div>
+        </div>
+        <div class="bg-gradient-to-r from-pink-500 to-orange-500 px-8 py-2 rounded-full font-black text-lg shadow-xl">会员中心</div>
+    </header>
+
+    <main>
+        <div class="content-matrix">
+            <div class="col-span-3 flex flex-col h-full">
+                <div class="flex-[6] pop-card color-name mb-6"><span class="text-8xl font-black italic drop-shadow-2xl">歌名</span></div>
+                <div class="flex-[1.5] pop-card color-artist"><span class="text-4xl font-black italic">歌手</span></div>
+            </div>
+
+            <div class="col-span-6 flex flex-col h-full">
+                <div class="flex-[6] bg-black rounded-[5rem] relative overflow-hidden mb-6 border-4 border-white/10 shadow-2xl">
+                    <div class="absolute top-8 right-8 bg-white/95 p-2 rounded-2xl z-20">
+                        <div class="w-16 h-16 bg-gray-100 flex flex-col items-center justify-center border border-black/5">
+                             <div class="w-10 h-10 border-2 border-black/10 rounded-sm"></div>
+                             <span class="text-[8px] text-black font-black mt-1">扫码点歌</span>
+                        </div>
+                    </div>
+                    <video class="w-full h-full object-cover opacity-60" autoplay loop muted>
+                        <source src="https://assets.mixkit.co/videos/preview/mixkit-animation-of-futuristic-devices-99786-large.mp4" type="video/mp4">
+                    </video>
+                    <div class="absolute bottom-12 w-full text-center text-5xl font-black text-yellow-400 tracking-[0.5em] italic drop-shadow-2xl">成 龙 | 陈 淑 桦</div>
+                </div>
+                
+                <div class="flex-[1.5] grid grid-cols-4 gap-4">
+                    <div class="pop-card color-rank font-black text-2xl italic">排行榜</div>
+                    <div class="pop-card color-category font-black text-2xl italic">分类</div>
+                    <div class="pop-card color-hot font-black text-2xl italic">热歌榜</div>
+                    <div class="pop-card color-free flex flex-col font-black italic">
+                        <span class="text-2xl text-yellow-400">免费区</span>
+                        <span class="text-[8px] text-white/40">SING FREE</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-span-3 flex flex-col gap-6 h-full">
+                <div class="flex-1 pop-card list-blue p-10 flex items-stretch">
+                    <div class="w-10 v-text font-black text-2xl border-r border-white/20 mr-8">情歌对唱</div>
+                    <div class="flex-1 flex flex-col justify-around py-4 font-bold text-2xl">
+                        <div>1 偏爱(HD)</div>
+                        <div>2 选择(HD)</div>
+                        <div>3 广岛之恋</div>
+                    </div>
+                </div>
+                <div class="flex-1 pop-card list-red p-10 flex items-stretch">
+                    <div class="w-10 v-text font-black text-2xl border-r border-white/20 mr-8">抖音热歌</div>
+                    <div class="flex-1 flex flex-col justify-around py-4 font-bold text-2xl">
+                        <div>1 最后的人</div>
+                        <div>2 孤勇者</div>
+                        <div>3 踏山河(HD)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer-strip">
+            <div class="btn-action">已点(3)</div>
+            <div class="btn-action text-white/50">切歌</div>
+            <div class="btn-action text-white/50">伴唱</div>
+            <div class="btn-action">暂停</div>
+            <div class="btn-action text-white/50">重唱</div>
+            <div class="btn-action text-white/50">调音</div>
+            <div class="btn-action text-blue-300">设置</div>
+            <div class="btn-action text-white/50">退出</div>
+        </footer>
+    </main>
+
+</body>
+</html>

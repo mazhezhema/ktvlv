@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/CMakeFiles/inih-populate"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/CMakeFiles/inih-populate.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/CMakeFiles/inih-populate-complete.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-build.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-configure.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-download.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-install.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-mkdir.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-patch.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-test.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/inih-subbuild/inih-populate-prefix/src/inih-populate-stamp/inih-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"inih-populate"
+		],
+		"name" : "inih-populate"
+	}
+}

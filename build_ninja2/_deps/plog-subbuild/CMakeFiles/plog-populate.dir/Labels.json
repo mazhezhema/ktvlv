@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/CMakeFiles/plog-populate"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/CMakeFiles/plog-populate.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/CMakeFiles/plog-populate-complete.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/plog-populate-prefix/src/plog-populate-stamp/plog-populate-build.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/plog-populate-prefix/src/plog-populate-stamp/plog-populate-configure.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/plog-populate-prefix/src/plog-populate-stamp/plog-populate-download.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/plog-populate-prefix/src/plog-populate-stamp/plog-populate-install.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/plog-populate-prefix/src/plog-populate-stamp/plog-populate-mkdir.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/plog-populate-prefix/src/plog-populate-stamp/plog-populate-patch.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/plog-populate-prefix/src/plog-populate-stamp/plog-populate-test.rule"
+		},
+		{
+			"file" : "D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-subbuild/plog-populate-prefix/src/plog-populate-stamp/plog-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"plog-populate"
+		],
+		"name" : "plog-populate"
+	}
+}
