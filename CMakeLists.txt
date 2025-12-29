@@ -91,6 +91,31 @@ FetchContent_MakeAvailable(cjson)
 find_package(CURL CONFIG REQUIRED)
 
 # ------------------------------------------------------------
+# 平台选择选项（默认使用旧代码，新架构可选）
+# ------------------------------------------------------------
+option(KTV_USE_NEW_PLATFORM_ARCH "Use new platform abstraction architecture" OFF)
+option(KTV_PLATFORM_F133_LINUX "Build for F133 Linux platform" OFF)
+
+if(KTV_USE_NEW_PLATFORM_ARCH)
+    if(KTV_PLATFORM_F133_LINUX)
+        message(STATUS "Platform: F133 Linux (New Architecture)")
+        add_definitions(-DKTV_PLATFORM_F133_LINUX)
+        set(PLATFORM_DISPLAY_SRC platform/f133_linux/display_fbdev.c)
+        set(PLATFORM_INPUT_SRC platform/f133_linux/input_evdev.c)
+        set(PLATFORM_AUDIO_SRC platform/f133_linux/audio_alsa.c)
+    else()
+        message(STATUS "Platform: Windows SDL (New Architecture)")
+        add_definitions(-DKTV_PLATFORM_WINDOWS_SDL)
+        set(PLATFORM_DISPLAY_SRC platform/windows_sdl/display_sdl.c)
+        set(PLATFORM_INPUT_SRC platform/windows_sdl/input_sdl.c)
+        set(PLATFORM_AUDIO_SRC platform/windows_sdl/audio_stub.c)
+    endif()
+    set(CORE_SRC core/app_main.c)
+else()
+    message(STATUS "Platform: Windows SDL (Legacy - using src/sdl/)")
+endif()
+
+# ------------------------------------------------------------
 # Sources
 # ------------------------------------------------------------
 file(GLOB UI_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/*.cpp")
@@ -98,17 +123,34 @@ file(GLOB SERVICE_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/service
 file(GLOB EVENT_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/events/*.cpp")
 file(GLOB LOGGING_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/logging/*.cpp")
 file(GLOB CONFIG_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/config/*.cpp")
-file(GLOB SDL_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/sdl/*.cpp")
 
-add_executable(ktvlv
-  src/main.cpp
-  ${UI_SRC}
-  ${SERVICE_SRC}
-  ${EVENT_SRC}
-  ${LOGGING_SRC}
-  ${CONFIG_SRC}
-  ${SDL_SRC}
-)
+if(KTV_USE_NEW_PLATFORM_ARCH)
+    # 使用新架构
+    add_executable(ktvlv
+      src/main.cpp
+      ${UI_SRC}
+      ${SERVICE_SRC}
+      ${EVENT_SRC}
+      ${LOGGING_SRC}
+      ${CONFIG_SRC}
+      ${PLATFORM_DISPLAY_SRC}
+      ${PLATFORM_INPUT_SRC}
+      ${PLATFORM_AUDIO_SRC}
+      ${CORE_SRC}
+    )
+else()
+    # 使用旧架构（兼容现有代码）
+    file(GLOB SDL_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/sdl/*.cpp")
+    add_executable(ktvlv
+      src/main.cpp
+      ${UI_SRC}
+      ${SERVICE_SRC}
+      ${EVENT_SRC}
+      ${LOGGING_SRC}
+      ${CONFIG_SRC}
+      ${SDL_SRC}
+    )
+endif()
 
 target_include_directories(ktvlv PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -120,14 +162,24 @@ target_include_directories(ktvlv PRIVATE
   ${cjson_SOURCE_DIR}
 )
 
+# 新架构包含目录
+if(KTV_USE_NEW_PLATFORM_ARCH)
+  target_include_directories(ktvlv PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/drivers
+    ${CMAKE_CURRENT_SOURCE_DIR}/platform
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+  )
+endif()
+
 target_compile_definitions(ktvlv PRIVATE
   LV_CONF_INCLUDE_SIMPLE
   LV_LVGL_H_INCLUDE_SIMPLE
 )
 
 # MSVC 源码统一按 UTF-8 编译，避免中文字符串编码问题
+# 启用 C++ 异常处理，避免异常处理警告和问题
 if (MSVC)
-  target_compile_options(ktvlv PRIVATE /utf-8)
+  target_compile_options(ktvlv PRIVATE /utf-8 /EHsc)
 endif()
 
 target_link_libraries(ktvlv PRIVATE
@@ -163,6 +215,47 @@ target_include_directories(ktvlv PRIVATE
 if (WIN32)
   set_target_properties(ktvlv PROPERTIES
     WIN32_EXECUTABLE OFF
+  )
+endif()
+
+# ------------------------------------------------------------
+# 自动复制运行时DLL到输出目录（快速构建优化）
+# ------------------------------------------------------------
+if (WIN32)
+  # 复制SDL2 DLL
+  add_custom_command(TARGET ktvlv POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:SDL2::SDL2>
+    $<TARGET_FILE_DIR:ktvlv>
+    COMMENT "复制 SDL2.dll..."
+  )
+  
+  # 复制libcurl DLL
+  add_custom_command(TARGET ktvlv POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:CURL::libcurl>
+    $<TARGET_FILE_DIR:ktvlv>
+    COMMENT "复制 libcurl.dll..."
+  )
+  
+  # 复制curl的依赖DLL（zlib等）
+  # 注意：vcpkg安装的curl可能依赖其他DLL，需要从vcpkg目录复制
+  if (DEFINED VCPKG_INSTALLED_DIR)
+    # 尝试复制zlib1.dll（curl的常见依赖）
+    add_custom_command(TARGET ktvlv POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/zlib1.dll"
+      $<TARGET_FILE_DIR:ktvlv>
+      COMMENT "复制 zlib1.dll..."
+    )
+  endif()
+  
+  # 复制配置文件模板（如果不存在）
+  add_custom_command(TARGET ktvlv POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/config.ini"
+    $<TARGET_FILE_DIR:ktvlv>
+    COMMENT "复制 config.ini..."
   )
 endif()
 

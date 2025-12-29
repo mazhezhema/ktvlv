@@ -1,5 +1,7 @@
 # Build artifacts
 build/
+build_ninja/
+build_ninja2/
 out/
 *.o
 *.obj

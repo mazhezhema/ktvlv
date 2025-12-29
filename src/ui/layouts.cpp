@@ -370,7 +370,18 @@ void show_home_tab(lv_obj_t* content_area) {
     setup_flex_col(list, UIScale::s(6), UIScale::s(6));
     lv_obj_set_scroll_dir(list, LV_DIR_VER);
 
-    auto songs = ktv::services::SongService::getInstance().listSongs(1, 20);
+    // 安全地获取歌曲列表，失败时使用mock数据
+    std::vector<ktv::services::SongItem> songs;
+    try {
+        songs = ktv::services::SongService::getInstance().listSongs(1, 20);
+    } catch (const std::exception& e) {
+        PLOGW << "获取歌曲列表失败，使用mock数据: " << e.what();
+        songs.clear();
+    } catch (...) {
+        PLOGW << "获取歌曲列表失败（未知错误），使用mock数据";
+        songs.clear();
+    }
+    
     if (songs.empty()) {
         // fallback to mock
         for (const auto& s : ktv::mock::hotSongs()) {
@@ -420,7 +431,15 @@ void show_history_tab(lv_obj_t* content_area) {
     setup_flex_col(list, UIScale::s(6), UIScale::s(6));
     lv_obj_set_scroll_dir(list, LV_DIR_VER);
 
-    auto songs = ktv::services::SongService::getInstance().listSongs(1, 20);
+    // 安全地获取歌曲列表
+    std::vector<ktv::services::SongItem> songs;
+    try {
+        songs = ktv::services::SongService::getInstance().listSongs(1, 20);
+    } catch (...) {
+        PLOGW << "获取历史记录失败，使用mock数据";
+        songs.clear();
+    }
+    
     if (songs.empty()) {
         for (const auto& s : ktv::mock::historySongs()) {
             create_song_list_item(list, s.title.c_str(), s.artist.c_str());
@@ -584,6 +603,9 @@ lv_obj_t* create_licence_dialog(lv_obj_t* parent) {
 }
 
 lv_obj_t* create_main_screen() {
+    // ✅ 架构修复：创建屏幕对象，但不触发刷新和布局计算
+    // 刷新权完全交给主循环，避免初始化阶段的崩溃
+    
     lv_obj_t* scr = lv_obj_create(NULL);
     lv_obj_add_style(scr, &style_bg, 0);
     setup_flex_col(scr, UIScale::s(6), UIScale::s(6));
@@ -595,8 +617,20 @@ lv_obj_t* create_main_screen() {
     (void)top;
     (void)bottom;
 
+    // 设置内容区域（必须在屏幕加载前完成）
     PageManager::getInstance().setContentArea(content);
+    
+    // ✅ 创建初始页面内容（但不触发布局计算）
+    // show_home_tab 内部只创建对象，不调用 lv_obj_update_layout
     show_home_tab(content);
+    
+    // ❌ 禁止在这里调用：
+    // - lv_obj_update_layout(scr)  // 会触发布局计算
+    // - lv_obj_invalidate(scr)      // 会触发刷新
+    // - lv_refr_now(disp)           // 会立即刷新
+    
+    // ✅ 布局计算和刷新将在主循环中由 lv_timer_handler 自然处理
+    
     return scr;
 }
 
