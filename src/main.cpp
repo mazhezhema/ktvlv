@@ -71,12 +71,48 @@ int SDL_main(int argc, char* argv[]) {
     ktv::services::HistoryService::getInstance().setCapacity(50);
     ktv::services::M3u8DownloadService::getInstance().initialize();
 
+    PLOGI << "创建主屏幕...";
     lv_obj_t* scr = ktv::ui::create_main_screen();
+    if (!scr) {
+        PLOGE << "创建主屏幕失败！";
+        return -1;
+    }
+    
+    PLOGI << "加载屏幕...";
     lv_scr_load(scr);
-
-    while (true) {
+    
+    // 确保屏幕有内容，触发一次刷新
+    PLOGI << "触发屏幕刷新...";
+    lv_obj_invalidate(scr);
+    lv_refr_now(nullptr);
+    
+    // 再刷新几次确保内容显示
+    for (int i = 0; i < 3; i++) {
         lv_timer_handler();
-        SDL_Delay(5);
+        SDL_Delay(10);
+    }
+    
+    PLOGI << "初始化完成，进入主循环";
+
+    bool quit = false;
+    SDL_Event e;
+    while (!quit) {
+        // 处理SDL事件
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) {
+                quit = true;
+            } else {
+                // 更新输入设备状态
+                sdl_update_mouse_state(&e);
+                sdl_update_keyboard_state(&e);
+            }
+        }
+        
+        // 处理LVGL定时器（这会触发输入设备读取和屏幕刷新）
+        uint32_t task_delay = lv_timer_handler();
+        
+        // 使用LVGL建议的延迟时间，但最小5ms
+        SDL_Delay(task_delay > 5 ? task_delay : 5);
     }
     return 0;
 }
