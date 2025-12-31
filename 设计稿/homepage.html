@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>雷石官方正版 - UI再现交付版</title>
+    <title>雷石官方正版 - 完整固定版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { font-size: clamp(10px, 1.1vw, 22px); }
@@ -14,78 +14,119 @@
             padding: 1rem 2rem; overflow: hidden; font-family: "PingFang SC", sans-serif;
         }
 
-        /* 首页布局 - 严格遵循讨论过的板式 */
-        .pop-card { border-radius: 3rem; border: 2.5px solid rgba(255, 255, 255, 0.3); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        /* 首页核心卡片 */
+        .pop-card { border-radius: 3rem; border: 2.5px solid rgba(255, 255, 255, 0.3); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; }
         .color-name { background: linear-gradient(135deg, #a855f7, #ec4899); } 
         .color-artist { background: linear-gradient(135deg, #f43f5e, #fb923c); }
         .list-card { background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border-color: rgba(255,255,255,0.2); }
-        .footer-btn { flex: 1; height: 3.5rem; background: rgba(30, 27, 75, 0.8); border-radius: 1.2rem; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.3rem; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
-
-        /* 弹窗核心 - 确保 2025-12-28 边界安全 */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(15px); display: none; justify-content: center; align-items: center; z-index: 9999; }
-        .modal-main { background: linear-gradient(165deg, #4c1d95 0%, #1e1b4b 100%); border: 2.5px solid rgba(255, 255, 255, 0.25); border-radius: 4rem; position: relative; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
-        .close-btn { position: absolute; top: 1.5rem; right: 1.5rem; width: 3.5rem; height: 3.5rem; background: #3b82f6; border-radius: 0.8rem; display: flex; justify-content: center; align-items: center; font-size: 2.2rem; cursor: pointer; }
         
-        /* 全屏播放层专属 */
-        #fullPlayer { background: black; z-index: 10000; }
-        .qr-tag { background: #00C853; border-radius: 0.4rem; padding: 0.2rem 0.8rem; font-weight: bold; font-size: 0.8rem; margin-top: 0.5rem; }
+        /* Footer 按钮样式 */
+        .footer-btn { flex: 1; height: 3.5rem; background: rgba(30, 27, 75, 0.8); border-radius: 1.2rem; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.2rem; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
 
-        /* 会员套餐 */
-        .vip-container { display: flex; flex-direction: column; gap: 0.75rem; height: 100%; }
-        .vip-item { flex: 1; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); border-radius: 1.2rem; padding: 0 1.5rem; display: flex; justify-content: space-between; align-items: center; min-height: 0; }
-        .vip-item.active { border-color: #facc15; background: rgba(250, 204, 21, 0.1); }
+        /* 弹窗核心 */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(20px); display: none; justify-content: center; align-items: center; z-index: 9999; }
+        .modal-main { background: linear-gradient(165deg, #4c1d95 0%, #1e1b4b 100%); border: 2.5px solid rgba(255, 255, 255, 0.25); border-radius: 4rem; position: relative; display: flex; flex-direction: column; overflow: hidden; }
+        .close-btn { position: absolute; top: 1.5rem; right: 1.5rem; width: 3.5rem; height: 3.5rem; background: #3b82f6; border-radius: 0.8rem; display: flex; justify-content: center; align-items: center; font-size: 2.2rem; cursor: pointer; }
 
-        /* 设置项开关 */
-        .toggle-switch { width: 4.2rem; height: 2rem; background: rgba(255,255,255,0.1); border-radius: 2rem; position: relative; border: 1px solid rgba(255,255,255,0.2); }
-        .toggle-switch.on { background: #3b82f6; }
-        .toggle-switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 1.6rem; height: 1.6rem; background: white; border-radius: 50%; transition: 0.3s; }
-        .toggle-switch.on::after { left: 2.3rem; }
+        /* 键盘整体化面板 */
+        .kb-integrated { background: rgba(255,255,255,0.08); border-radius: 2rem; border: 1.5px solid rgba(255,255,255,0.15); display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+        .kb-textbox { background: rgba(0,0,0,0.3); height: 3.5rem; display: flex; align-items: center; padding: 0 1.2rem; border-bottom: 1.5px solid rgba(255,255,255,0.1); }
+        .key-btn { background: rgba(255,255,255,0.1); border-radius: 0.6rem; display: flex; align-items: center; justify-content: center; font-weight: 900; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); }
+        .key-btn:active { background: #3b82f6; }
 
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
         .v-text { writing-mode: vertical-lr; letter-spacing: 0.4rem; font-weight: 900; }
+        .custom-scroll::-webkit-scrollbar { width: 0px; }
     </style>
 </head>
 <body class="select-none">
 
-    <header class="flex justify-between items-center mb-3 shrink-0">
+    <header class="flex justify-between items-center mb-4 shrink-0 px-2">
         <div class="flex items-center space-x-8">
-            <h1 class="text-3xl font-black italic tracking-tighter">雷石官方正版</h1>
+            <h1 class="text-3xl font-black italic tracking-tighter cursor-pointer" onclick="goHome()">雷石官方正版</h1>
             <button class="px-6 py-2 bg-indigo-950/60 rounded-xl font-bold border border-white/15">历史记录</button>
         </div>
         <button onclick="openModal('modalVip')" class="bg-orange-600 px-8 py-2 rounded-full font-black text-xl shadow-lg">会员中心</button>
     </header>
 
-    <main class="flex-1 grid grid-cols-12 gap-5 min-h-0">
+    <main id="homePage" class="flex-1 grid grid-cols-12 gap-5 min-h-0">
         <div class="col-span-3 flex flex-col h-full">
-            <div class="flex-[5.5] pop-card color-name mb-5"><span class="text-[7rem] font-black italic">歌名</span></div>
-            <div class="flex-[3] pop-card color-artist"><span class="text-4xl font-black italic">歌手</span></div>
+            <div onclick="openPage('song')" class="flex-[5.5] pop-card color-name mb-5"><span class="text-[7rem] font-black italic">歌名</span></div>
+            <div onclick="openPage('singer')" class="flex-[3] pop-card color-artist"><span class="text-4xl font-black italic">歌手</span></div>
         </div>
         <div class="col-span-6 flex flex-col h-full">
-            <div onclick="openFullPlayer()" class="flex-[5.5] bg-black rounded-[4rem] relative mb-5 border-4 border-white/10 flex items-center justify-center cursor-pointer">
+            <div class="flex-[5.5] bg-black rounded-[4rem] relative mb-5 border-4 border-white/10 flex items-center justify-center overflow-hidden">
                 <div class="text-5xl font-black text-yellow-400 italic tracking-[0.5em]">成 龙 | 陈 淑 桦</div>
             </div>
             <div class="flex-[3] grid grid-cols-4 gap-4">
                 <div class="pop-card bg-blue-500 font-black text-2xl">排行榜</div>
                 <div class="pop-card bg-cyan-500 font-black text-2xl">分类</div>
                 <div class="pop-card bg-purple-500 font-black text-2xl">热歌榜</div>
-                <div class="pop-card bg-zinc-900 border-yellow-500 flex flex-col font-black italic">
-                    <span class="text-2xl text-yellow-400">免费区</span>
-                    <span class="text-[8px] opacity-40">SING FREE</span>
-                </div>
+                <div class="pop-card bg-zinc-900 border-yellow-500 flex flex-col font-black italic"><span class="text-2xl text-yellow-400">免费区</span></div>
             </div>
         </div>
         <div class="col-span-3 flex flex-col gap-5 h-full">
             <div class="flex-1 pop-card list-card p-6 flex items-stretch border-2 border-blue-500/30">
                 <div class="w-8 v-text text-xl border-r border-white/15 mr-6 text-blue-300">情歌对唱</div>
-                <div class="flex-1 flex flex-col justify-around font-bold text-xl"><div>1 偏爱(HD)</div><div>2 选择(HD)</div><div>3 广岛之恋</div></div>
+                <div class="flex-1 flex flex-col justify-around font-bold text-xl">
+                    <div class="border-b border-white/10 pb-1">1 偏爱(HD)</div>
+                    <div class="border-b border-white/10 pb-1">2 选择(HD)</div>
+                    <div>3 广岛之恋</div>
+                </div>
             </div>
             <div class="flex-1 pop-card list-card p-6 flex items-stretch border-2 border-pink-500/30">
                 <div class="w-8 v-text text-xl border-r border-white/15 mr-6 text-pink-300">抖音热歌</div>
-                <div class="flex-1 flex flex-col justify-around font-bold text-xl"><div>1 最后的人</div><div>2 孤勇者</div><div>3 踏山河(HD)</div></div>
+                <div class="flex-1 flex flex-col justify-around font-bold text-xl">
+                    <div class="border-b border-white/10 pb-1">1 最后的人</div>
+                    <div class="border-b border-white/10 pb-1">2 孤勇者</div>
+                    <div>3 踏山河(HD)</div>
+                </div>
             </div>
         </div>
     </main>
+
+    <section id="searchPage" class="hidden flex-1 flex gap-8 min-h-0">
+        <div class="w-[44%] flex flex-col h-full">
+            <div class="h-[35%] bg-black rounded-[2.5rem] border-4 border-white/10 relative mb-4 flex items-center justify-center overflow-hidden">
+                <span class="text-white/10 italic font-black">MV PREVIEW</span>
+                <div class="absolute top-2 right-2 w-20 bg-white p-1 rounded-md text-center shadow-2xl">
+                    <div class="w-full aspect-square bg-gray-300"></div>
+                    <p class="bg-green-600 text-[8px] text-white font-bold">扫码点歌</p>
+                </div>
+            </div>
+            
+            <div class="flex-1 kb-integrated">
+                <div class="kb-textbox">
+                    <span class="text-blue-400 mr-3">🔍</span>
+                    <div id="searchBox" class="flex-1 text-2xl font-black text-yellow-400 tracking-widest uppercase"></div>
+                    <div class="flex gap-2">
+                        <button onclick="kbBack()" class="bg-white/10 px-4 py-1 rounded-lg text-xs font-black">回退</button>
+                        <button onclick="kbClear()" class="bg-white/10 px-4 py-1 rounded-lg text-xs font-black">全删</button>
+                    </div>
+                </div>
+                <div class="flex flex-1 p-2.5 gap-2.5 overflow-hidden">
+                    <div class="w-12 flex flex-col gap-2">
+                        <div id="tabPinyin" onclick="setKb('pinyin')" class="flex-1 bg-blue-600 rounded-xl flex items-center justify-center v-text text-[0.7rem] cursor-pointer">拼音</div>
+                        <div id="tabHand" onclick="setKb('hand')" class="flex-1 bg-white/10 rounded-xl flex items-center justify-center v-text text-[0.7rem] cursor-pointer">手写</div>
+                    </div>
+                    <div id="kbPinyin" class="flex-1 grid grid-cols-6 gap-1.5">
+                        <script>
+                            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("").forEach(char => {
+                                document.write(`<div onclick="kbInput('${char}')" class="key-btn h-11 text-xl">${char}</div>`);
+                            });
+                        </script>
+                    </div>
+                    <div id="kbHand" class="hidden flex-1 items-center justify-center italic text-white/10">手写区域</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col">
+            <div class="flex justify-between items-end mb-4 border-b border-white/10 pb-4">
+                <h2 id="pageTitle" class="text-3xl font-black text-blue-400 italic">歌名搜索</h2>
+            </div>
+            <div id="searchList" class="flex-1 overflow-y-auto custom-scroll space-y-4 pr-2"></div>
+        </div>
+    </section>
 
     <footer class="flex gap-3 mt-4 shrink-0">
         <button class="footer-btn text-yellow-400" onclick="openModal('modalPlaylist')">已点(3)</button>
@@ -95,145 +136,92 @@
         <button class="footer-btn opacity-60">重唱</button>
         <button class="footer-btn" onclick="openModal('modalTune')">调音</button>
         <button class="footer-btn text-blue-400" onclick="openModal('modalSettings')">设置</button>
-        <button class="footer-btn opacity-60">退出</button>
+        <button class="footer-btn opacity-60" onclick="goHome()">返回</button>
     </footer>
 
-    <div id="fullPlayer" class="modal-overlay" onclick="closeFullPlayer()">
-        <div class="absolute top-6 w-full text-center text-white/50 text-xl font-light">未点歌</div>
-        <div class="absolute top-8 right-8 flex flex-col items-center">
-            <div class="w-32 h-32 bg-white p-2 rounded-xl shadow-2xl">
-                <div class="w-full h-full bg-gray-100 flex items-center justify-center text-black font-black">二维码</div>
-            </div>
-            <div class="qr-tag text-white">微信扫码点歌</div>
-        </div>
-        <div class="text-center">
-            <div class="text-orange-200 text-6xl font-black italic drop-shadow-2xl mb-4">明明白白我的心</div>
-            <div class="text-orange-100/60 text-2xl font-bold tracking-[0.5em]">成 龙 | 陈 淑 桦</div>
-        </div>
-    </div>
-
     <div id="modalVip" class="modal-overlay">
-        <div class="modal-main p-8" style="width: 82vw; height: 82vh;">
+        <div class="modal-main p-8 w-[80vw] h-[78vh]">
             <div class="close-btn" onclick="closeModal('modalVip')">×</div>
-            <h2 class="text-3xl font-black text-center mb-6 text-orange-300 italic">百万曲库免费下载</h2>
-            <div class="flex-1 flex gap-8 overflow-hidden">
-                <div class="flex-[1.4] vip-container">
-                    <div class="vip-item active">
-                        <div><div class="text-xl font-black text-yellow-400">¥ 0.26 /天</div><div class="text-xs opacity-30 line-through">¥ 486</div></div>
+            <h2 class="text-3xl font-black text-center mb-8 text-orange-400 italic">会员中心</h2>
+            <div class="flex h-[75%] gap-8">
+                <div class="flex-[1.5] flex flex-col gap-3">
+                    <div class="bg-yellow-500/10 border-2 border-yellow-500 p-4 rounded-2xl flex justify-between items-center">
+                        <div><p class="text-xl font-black text-yellow-400">¥ 0.26 /天</p><p class="text-xs opacity-40 line-through">¥ 486</p></div>
                         <div class="text-2xl font-black italic">60个月</div>
                     </div>
-                    <div class="vip-item">
-                        <div><div class="text-xl font-bold">¥ 0.36 /天</div><div class="text-xs opacity-30 line-through">¥ 399</div></div>
-                        <div class="text-2xl font-black italic opacity-40">36个月</div>
-                    </div>
-                    <div class="vip-item">
-                        <div><div class="text-xl font-bold">¥ 0.54 /天</div><div class="text-xs opacity-30 line-through">¥ 199</div></div>
-                        <div class="text-2xl font-black italic opacity-40">12个月</div>
-                    </div>
-                    <div class="vip-item">
-                        <div><div class="text-xl font-bold">¥ 1.2 /天</div><div class="text-xs opacity-30 line-through">¥ 36.9</div></div>
-                        <div class="text-2xl font-black italic opacity-40">1个月</div>
-                    </div>
+                    <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex justify-between items-center"><div><p class="text-xl font-bold">¥ 0.36 /天</p></div><div class="text-2xl font-black italic">36个月</div></div>
+                    <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex justify-between items-center"><div><p class="text-xl font-bold">¥ 0.54 /天</p></div><div class="text-2xl font-black italic">12个月</div></div>
+                    <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex justify-between items-center"><div><p class="text-xl font-bold">¥ 1.2 /天</p></div><div class="text-2xl font-black italic">1个月</div></div>
                 </div>
                 <div class="flex-1 flex flex-col items-center justify-center border-l border-white/10 pl-8">
-                    <div class="bg-white p-4 rounded-[2rem] mb-4 shadow-2xl shrink-0">
-                        <div class="w-36 h-36 bg-gray-100 flex items-center justify-center text-black font-black text-xl">二维码</div>
-                    </div>
-                    <p class="text-yellow-400 text-xl font-black italic mb-1">扫码开通会员</p>
-                    <p class="text-white/40 text-sm">会员到期：2026-03-18</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="modalSettings" class="modal-overlay">
-        <div class="modal-main p-10" style="width: 52vw; height: 78vh;">
-            <div class="close-btn" onclick="closeModal('modalSettings')">×</div>
-            <h2 class="text-3xl font-black mb-8 italic">系统设置中心</h2>
-            <div class="flex-1 flex flex-col justify-between">
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center pb-3 border-b border-white/10">
-                        <span class="text-xl font-bold">隐藏二维码</span>
-                        <div class="toggle-switch" onclick="this.classList.toggle('on')"></div>
-                    </div>
-                    <div class="flex justify-between items-center pb-3 border-b border-white/10">
-                        <span class="text-xl font-bold">语音助手</span>
-                        <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
-                    </div>
-                    <div class="flex justify-between items-center pb-3 border-b border-white/10">
-                        <span class="text-xl font-bold">LICENSE: ATLOQ9</span>
-                        <span class="text-blue-400 font-bold text-lg">已激活</span>
-                    </div>
-                    <div class="flex justify-between items-center pb-3 border-b border-white/10">
-                        <span class="text-xl font-bold">版本号: 1.2.19_release</span>
-                    </div>
-                    <div class="flex justify-between items-center pb-3 border-b border-white/10">
-                        <span class="text-xl font-bold">用户协议与隐私权</span>
-                        <span class="text-white/40">查看详情</span>
-                    </div>
-                </div>
-                <div class="pt-4 flex justify-center">
-                    <button class="bg-blue-600 px-16 py-4 rounded-2xl font-black text-xl shadow-xl">检查更新</button>
+                    <div class="bg-white p-4 rounded-2xl mb-4 shadow-xl"><div class="w-32 h-32 bg-gray-200"></div></div>
+                    <p class="text-yellow-400 font-black">扫码开通会员</p>
                 </div>
             </div>
         </div>
     </div>
 
     <div id="modalPlaylist" class="modal-overlay">
-        <div class="modal-main p-10" style="width: 70vw; height: 75vh;">
+        <div class="modal-main p-10 w-[65vw] h-[70vh]">
             <div class="close-btn" onclick="closeModal('modalPlaylist')">×</div>
-            <h2 class="text-3xl font-black mb-8 italic">已点歌曲</h2>
-            <div class="flex-1 overflow-y-auto custom-scroll space-y-4 pr-3">
+            <h2 class="text-3xl font-black mb-8 italic">已点歌曲 (3)</h2>
+            <div class="space-y-4">
                 <div class="bg-white/15 p-6 rounded-3xl flex justify-between items-center border border-white/20">
-                    <div><div class="text-2xl font-black">搁浅(B)(HD)</div><div class="text-lg text-white/40">周杰伦</div></div>
-                    <div class="text-xl font-black text-green-400 font-bold">播放中</div>
+                    <div><p class="text-2xl font-black">偏爱(B)(HD)</p><p class="text-lg opacity-40">张芸京</p></div>
+                    <span class="text-green-400 font-black">播放中</span>
                 </div>
                 <div class="bg-white/5 p-6 rounded-3xl flex justify-between items-center border border-white/10">
-                    <div><div class="text-2xl font-black">告白气球(B)(HD)</div><div class="text-lg text-white/40">周杰伦</div></div>
-                    <div class="flex gap-4">
-                        <button class="px-6 py-2 bg-blue-600 rounded-xl font-bold">置顶</button>
-                        <button class="px-6 py-2 bg-red-600 rounded-xl font-bold">删除</button>
-                    </div>
+                    <div><p class="text-2xl font-black">告白气球(HD)</p><p class="text-lg opacity-40">周杰伦</p></div>
+                    <div class="flex gap-4"><button class="px-6 py-2 bg-blue-600 rounded-xl font-bold text-sm">置顶</button><button class="px-6 py-2 bg-red-600 rounded-xl font-bold text-sm">删除</button></div>
                 </div>
-                <div class="bg-white/5 p-6 rounded-3xl flex justify-between items-center border border-white/10">
-                    <div><div class="text-2xl font-black">晴天(HD)</div><div class="text-lg text-white/40">周杰伦</div></div>
-                    <div class="flex gap-4">
-                        <button class="px-6 py-2 bg-blue-600 rounded-xl font-bold">置顶</button>
-                        <button class="px-6 py-2 bg-red-600 rounded-xl font-bold">删除</button>
-                    </div>
-                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalSettings" class="modal-overlay">
+        <div class="modal-main p-10 w-[45vw] h-[65vh]">
+            <div class="close-btn" onclick="closeModal('modalSettings')">×</div>
+            <h2 class="text-3xl font-black mb-10 italic">系统设置</h2>
+            <div class="space-y-6 text-xl">
+                <div class="flex justify-between border-b border-white/10 pb-4"><span>隐藏二维码</span><span class="text-zinc-500">○</span></div>
+                <div class="flex justify-between border-b border-white/10 pb-4"><span>语音助手</span><span class="text-blue-500">●</span></div>
+                <div class="pt-4 opacity-50 text-sm">LICENSE: ATLOQ9</div>
+                <div class="opacity-50 text-sm">版本号: 1.2.19_release</div>
             </div>
         </div>
     </div>
 
     <div id="modalTune" class="modal-overlay">
-        <div class="modal-main p-12" style="width: 45vw; height: 45vh;">
+        <div class="modal-main p-10 w-[40vw] h-[45vh]">
             <div class="close-btn" onclick="closeModal('modalTune')">×</div>
-            <h2 class="text-3xl font-black mb-10 italic text-center">调音台</h2>
-            <div class="flex-1 flex flex-col justify-center space-y-12">
-                <div class="flex items-center gap-6">
-                    <span class="text-xl font-bold w-20">音量</span>
-                    <div class="flex-1 h-3 bg-white/20 rounded-full overflow-hidden">
-                        <div class="h-full bg-blue-500 w-[60%]"></div>
-                    </div>
-                    <span class="text-xl font-black">60</span>
-                </div>
-                <div class="flex items-center gap-6">
-                    <span class="text-xl font-bold w-20">升降调</span>
-                    <div class="flex-1 h-3 bg-white/20 rounded-full overflow-hidden">
-                        <div class="h-full bg-orange-500 w-[50%]"></div>
-                    </div>
-                    <span class="text-xl font-black">0</span>
-                </div>
+            <h2 class="text-3xl font-black mb-10 text-center italic">调音控制</h2>
+            <div class="space-y-12">
+                <div class="flex items-center gap-6"><span class="w-20 font-bold">音量</span><div class="flex-1 h-2 bg-white/20 rounded-full"><div class="w-[60%] h-full bg-blue-500"></div></div><span class="font-black">60</span></div>
+                <div class="flex items-center gap-6"><span class="w-20 font-bold">升降调</span><div class="flex-1 h-2 bg-white/20 rounded-full"><div class="w-[50%] h-full bg-orange-500"></div></div><span class="font-black">0</span></div>
             </div>
         </div>
     </div>
 
     <script>
+        let searchQuery = "";
+        function kbInput(c) { searchQuery += c; document.getElementById('searchBox').innerText = searchQuery; }
+        function kbBack() { searchQuery = searchQuery.slice(0,-1); document.getElementById('searchBox').innerText = searchQuery; }
+        function kbClear() { searchQuery = ""; document.getElementById('searchBox').innerText = searchQuery; }
+        function setKb(m) {
+            document.getElementById('kbPinyin').style.display = m==='pinyin'?'grid':'none';
+            document.getElementById('kbHand').style.display = m==='hand'?'flex':'none';
+            document.getElementById('tabPinyin').className = `flex-1 ${m==='pinyin'?'bg-blue-600':'bg-white/10'} rounded-xl flex items-center justify-center v-text text-[0.8rem] cursor-pointer`;
+            document.getElementById('tabHand').className = `flex-1 ${m==='hand'?'bg-blue-600':'bg-white/10'} rounded-xl flex items-center justify-center v-text text-[0.8rem] cursor-pointer`;
+        }
+        function openPage(type) {
+            document.getElementById('homePage').style.display = 'none';
+            document.getElementById('searchPage').style.display = 'flex';
+            const list = document.getElementById('searchList');
+            list.innerHTML = Array(5).fill(0).map(()=>`<div class="bg-white/5 p-5 rounded-[2.5rem] flex justify-between items-center border border-white/5"><div><p class="text-xl font-black">最后的人(HD)</p><p class="text-sm opacity-40">杨小壮</p></div><button class="bg-blue-600 px-8 py-2 rounded-xl font-black">点歌</button></div>`).join('');
+        }
+        function goHome() { document.getElementById('homePage').style.display = 'grid'; document.getElementById('searchPage').style.display = 'none'; }
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-        function openFullPlayer() { document.getElementById('fullPlayer').style.display = 'flex'; }
-        function closeFullPlayer() { document.getElementById('fullPlayer').style.display = 'none'; }
     </script>
 </body>
 </html>

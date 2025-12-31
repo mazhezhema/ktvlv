@@ -50,6 +50,12 @@ public:
      */
     void setFocus(lv_obj_t* obj);
 
+    /**
+     * 重置当前活动焦点组（清空所有对象）
+     * 用于页面切换时避免 group 里挂着已销毁的对象
+     */
+    void resetActiveGroup();
+
 private:
     FocusManager() = default;
     ~FocusManager() = default;

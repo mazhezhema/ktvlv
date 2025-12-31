@@ -603,11 +603,12 @@ lv_obj_t* create_licence_dialog(lv_obj_t* parent) {
 }
 
 lv_obj_t* create_main_screen() {
-    // ✅ 架构修复：创建屏幕对象，但不触发刷新和布局计算
-    // 刷新权完全交给主循环，避免初始化阶段的崩溃
-    
-    lv_obj_t* scr = lv_obj_create(NULL);
+    // 使用 LVGL 默认屏幕，避免额外创建导致尺寸被覆盖
+    lv_obj_t* scr = lv_scr_act();
+    lv_obj_clean(scr);
     lv_obj_add_style(scr, &style_bg, 0);
+    lv_obj_set_size(scr, LV_PCT(100), LV_PCT(100));
+    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
     setup_flex_col(scr, UIScale::s(6), UIScale::s(6));
 
     lv_obj_t* top = create_top_bar(scr);
@@ -620,17 +621,10 @@ lv_obj_t* create_main_screen() {
     // 设置内容区域（必须在屏幕加载前完成）
     PageManager::getInstance().setContentArea(content);
     
-    // ✅ 创建初始页面内容（但不触发布局计算）
-    // show_home_tab 内部只创建对象，不调用 lv_obj_update_layout
+    // 初始页面
     show_home_tab(content);
     
-    // ❌ 禁止在这里调用：
-    // - lv_obj_update_layout(scr)  // 会触发布局计算
-    // - lv_obj_invalidate(scr)      // 会触发刷新
-    // - lv_refr_now(disp)           // 会立即刷新
-    
-    // ✅ 布局计算和刷新将在主循环中由 lv_timer_handler 自然处理
-    
+    // 布局与刷新交给主循环
     return scr;
 }
 

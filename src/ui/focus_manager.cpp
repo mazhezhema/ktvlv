@@ -32,6 +32,12 @@ void FocusManager::setFocus(lv_obj_t* obj) {
     }
 }
 
+void FocusManager::resetActiveGroup() {
+    if (active_group_) {
+        lv_group_remove_all_objs(active_group_);
+    }
+}
+
 }  // namespace ktv::ui
 
 

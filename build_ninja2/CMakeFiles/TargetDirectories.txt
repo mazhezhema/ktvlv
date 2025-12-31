@@ -16,6 +16,14 @@ D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lvgl-build/CMakeFiles/rebuild_cache.dir
 D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lvgl-build/CMakeFiles/list_install_components.dir
 D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lvgl-build/CMakeFiles/install.dir
 D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lvgl-build/CMakeFiles/install/local.dir
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-build/CMakeFiles/lv_drivers.dir
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-build/CMakeFiles/package.dir
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-build/CMakeFiles/package_source.dir
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-build/CMakeFiles/edit_cache.dir
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-build/CMakeFiles/rebuild_cache.dir
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-build/CMakeFiles/list_install_components.dir
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-build/CMakeFiles/install.dir
+D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-build/CMakeFiles/install/local.dir
 D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-build/CMakeFiles/package.dir
 D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-build/CMakeFiles/package_source.dir
 D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-build/CMakeFiles/edit_cache.dir

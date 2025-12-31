@@ -28,9 +28,6 @@ CJSON_BUILD_SHARED_LIBS:BOOL=ON
 CJSON_OVERRIDE_BUILD_SHARED_LIBS:BOOL=OFF
 
 //Path to a program.
-CMAKE_ADDR2LINE:FILEPATH=CMAKE_ADDR2LINE-NOTFOUND
-
-//Path to a program.
 CMAKE_AR:FILEPATH=D:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lib.exe
 
 //Choose the type of build, options are: None Debug Release RelWithDebInfo
@@ -41,19 +38,19 @@ CMAKE_BUILD_TYPE:STRING=Release
 CMAKE_CXX_COMPILER:FILEPATH=D:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/cl.exe
 
 //Flags used by the CXX compiler during all build types.
-CMAKE_CXX_FLAGS:STRING=
+CMAKE_CXX_FLAGS:STRING=/DWIN32 /D_WINDOWS /EHsc
 
 //Flags used by the CXX compiler during DEBUG builds.
-CMAKE_CXX_FLAGS_DEBUG:STRING=
+CMAKE_CXX_FLAGS_DEBUG:STRING=/Zi /Ob0 /Od /RTC1
 
 //Flags used by the CXX compiler during MINSIZEREL builds.
-CMAKE_CXX_FLAGS_MINSIZEREL:STRING=
+CMAKE_CXX_FLAGS_MINSIZEREL:STRING=/O1 /Ob1 /DNDEBUG
 
 //Flags used by the CXX compiler during RELEASE builds.
-CMAKE_CXX_FLAGS_RELEASE:STRING=
+CMAKE_CXX_FLAGS_RELEASE:STRING=/O2 /Ob2 /DNDEBUG
 
 //Flags used by the CXX compiler during RELWITHDEBINFO builds.
-CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=
+CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=/Zi /O2 /Ob1 /DNDEBUG
 
 //Libraries linked by default with all C++ applications.
 CMAKE_CXX_STANDARD_LIBRARIES:STRING=kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
@@ -62,40 +59,37 @@ CMAKE_CXX_STANDARD_LIBRARIES:STRING=kernel32.lib user32.lib gdi32.lib winspool.l
 CMAKE_C_COMPILER:FILEPATH=D:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/cl.exe
 
 //Flags used by the C compiler during all build types.
-CMAKE_C_FLAGS:STRING=
+CMAKE_C_FLAGS:STRING=/DWIN32 /D_WINDOWS
 
 //Flags used by the C compiler during DEBUG builds.
-CMAKE_C_FLAGS_DEBUG:STRING=
+CMAKE_C_FLAGS_DEBUG:STRING=/Zi /Ob0 /Od /RTC1
 
 //Flags used by the C compiler during MINSIZEREL builds.
-CMAKE_C_FLAGS_MINSIZEREL:STRING=
+CMAKE_C_FLAGS_MINSIZEREL:STRING=/O1 /Ob1 /DNDEBUG
 
 //Flags used by the C compiler during RELEASE builds.
-CMAKE_C_FLAGS_RELEASE:STRING=
+CMAKE_C_FLAGS_RELEASE:STRING=/O2 /Ob2 /DNDEBUG
 
 //Flags used by the C compiler during RELWITHDEBINFO builds.
-CMAKE_C_FLAGS_RELWITHDEBINFO:STRING=
+CMAKE_C_FLAGS_RELWITHDEBINFO:STRING=/Zi /O2 /Ob1 /DNDEBUG
 
 //Libraries linked by default with all C applications.
 CMAKE_C_STANDARD_LIBRARIES:STRING=kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
 
-//Path to a program.
-CMAKE_DLLTOOL:FILEPATH=CMAKE_DLLTOOL-NOTFOUND
-
 //Flags used by the linker during all build types.
-CMAKE_EXE_LINKER_FLAGS:STRING=
+CMAKE_EXE_LINKER_FLAGS:STRING=/machine:x64
 
 //Flags used by the linker during DEBUG builds.
-CMAKE_EXE_LINKER_FLAGS_DEBUG:STRING=
+CMAKE_EXE_LINKER_FLAGS_DEBUG:STRING=/debug /INCREMENTAL
 
 //Flags used by the linker during MINSIZEREL builds.
-CMAKE_EXE_LINKER_FLAGS_MINSIZEREL:STRING=
+CMAKE_EXE_LINKER_FLAGS_MINSIZEREL:STRING=/INCREMENTAL:NO
 
 //Flags used by the linker during RELEASE builds.
-CMAKE_EXE_LINKER_FLAGS_RELEASE:STRING=
+CMAKE_EXE_LINKER_FLAGS_RELEASE:STRING=/INCREMENTAL:NO
 
 //Flags used by the linker during RELWITHDEBINFO builds.
-CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO:STRING=
+CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO:STRING=/debug /INCREMENTAL
 
 //Enable/Disable output of compile commands during generation.
 CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=
@@ -159,35 +153,26 @@ CMAKE_MAKE_PROGRAM:FILEPATH=C:/Users/ma/AppData/Local/Programs/Python/Python312/
 
 //Flags used by the linker during the creation of modules during
 // all build types.
-CMAKE_MODULE_LINKER_FLAGS:STRING=
+CMAKE_MODULE_LINKER_FLAGS:STRING=/machine:x64
 
 //Flags used by the linker during the creation of modules during
 // DEBUG builds.
-CMAKE_MODULE_LINKER_FLAGS_DEBUG:STRING=
+CMAKE_MODULE_LINKER_FLAGS_DEBUG:STRING=/debug /INCREMENTAL
 
 //Flags used by the linker during the creation of modules during
 // MINSIZEREL builds.
-CMAKE_MODULE_LINKER_FLAGS_MINSIZEREL:STRING=
+CMAKE_MODULE_LINKER_FLAGS_MINSIZEREL:STRING=/INCREMENTAL:NO
 
 //Flags used by the linker during the creation of modules during
 // RELEASE builds.
-CMAKE_MODULE_LINKER_FLAGS_RELEASE:STRING=
+CMAKE_MODULE_LINKER_FLAGS_RELEASE:STRING=/INCREMENTAL:NO
 
 //Flags used by the linker during the creation of modules during
 // RELWITHDEBINFO builds.
-CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO:STRING=
+CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO:STRING=/debug /INCREMENTAL
 
 //Path to a program.
 CMAKE_MT:FILEPATH=D:/Windows Kits/10/bin/10.0.26100.0/x64/mt.exe
-
-//Path to a program.
-CMAKE_NM:FILEPATH=CMAKE_NM-NOTFOUND
-
-//Path to a program.
-CMAKE_OBJCOPY:FILEPATH=CMAKE_OBJCOPY-NOTFOUND
-
-//Path to a program.
-CMAKE_OBJDUMP:FILEPATH=CMAKE_OBJDUMP-NOTFOUND
 
 //Value Computed by CMake
 CMAKE_PROJECT_DESCRIPTION:STATIC=
@@ -231,28 +216,25 @@ CMAKE_RC_FLAGS_RELEASE:STRING=
 //Flags for Windows Resource Compiler during RELWITHDEBINFO builds.
 CMAKE_RC_FLAGS_RELWITHDEBINFO:STRING=
 
-//Path to a program.
-CMAKE_READELF:FILEPATH=CMAKE_READELF-NOTFOUND
-
 //Flags used by the linker during the creation of shared libraries
 // during all build types.
-CMAKE_SHARED_LINKER_FLAGS:STRING=
+CMAKE_SHARED_LINKER_FLAGS:STRING=/machine:x64
 
 //Flags used by the linker during the creation of shared libraries
 // during DEBUG builds.
-CMAKE_SHARED_LINKER_FLAGS_DEBUG:STRING=
+CMAKE_SHARED_LINKER_FLAGS_DEBUG:STRING=/debug /INCREMENTAL
 
 //Flags used by the linker during the creation of shared libraries
 // during MINSIZEREL builds.
-CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL:STRING=
+CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL:STRING=/INCREMENTAL:NO
 
 //Flags used by the linker during the creation of shared libraries
 // during RELEASE builds.
-CMAKE_SHARED_LINKER_FLAGS_RELEASE:STRING=
+CMAKE_SHARED_LINKER_FLAGS_RELEASE:STRING=/INCREMENTAL:NO
 
 //Flags used by the linker during the creation of shared libraries
 // during RELWITHDEBINFO builds.
-CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO:STRING=
+CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO:STRING=/debug /INCREMENTAL
 
 //If set, runtime paths are not added when installing shared libraries,
 // but are added when building.
@@ -263,7 +245,7 @@ CMAKE_SKIP_RPATH:BOOL=NO
 
 //Flags used by the linker during the creation of static libraries
 // during all build types.
-CMAKE_STATIC_LINKER_FLAGS:STRING=
+CMAKE_STATIC_LINKER_FLAGS:STRING=/machine:x64
 
 //Flags used by the linker during the creation of static libraries
 // during DEBUG builds.
@@ -281,11 +263,8 @@ CMAKE_STATIC_LINKER_FLAGS_RELEASE:STRING=
 // during RELWITHDEBINFO builds.
 CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO:STRING=
 
-//Path to a program.
-CMAKE_STRIP:FILEPATH=CMAKE_STRIP-NOTFOUND
-
-//No help, variable specified on the command line.
-CMAKE_TOOLCHAIN_FILE:UNINITIALIZED=D:/vcpkg/scripts/buildsystems/vcpkg.cmake
+//The CMake toolchain file
+CMAKE_TOOLCHAIN_FILE:FILEPATH=D:/vcpkg/scripts/buildsystems/vcpkg.cmake
 
 //If this value is on, makefiles will be generated without the
 // .SILENT directive, and all commands will be echoed to the console
@@ -365,6 +344,10 @@ FETCHCONTENT_SOURCE_DIR_INIH:PATH=
 FETCHCONTENT_SOURCE_DIR_LVGL:PATH=
 
 //When not empty, overrides where to find pre-populated content
+// for lv_drivers
+FETCHCONTENT_SOURCE_DIR_LV_DRIVERS:PATH=
+
+//When not empty, overrides where to find pre-populated content
 // for moodycamel
 FETCHCONTENT_SOURCE_DIR_MOODYCAMEL:PATH=
 
@@ -384,6 +367,9 @@ FETCHCONTENT_UPDATES_DISCONNECTED_INIH:BOOL=OFF
 //Enables UPDATE_DISCONNECTED behavior just for population of lvgl
 FETCHCONTENT_UPDATES_DISCONNECTED_LVGL:BOOL=OFF
 
+//Enables UPDATE_DISCONNECTED behavior just for population of lv_drivers
+FETCHCONTENT_UPDATES_DISCONNECTED_LV_DRIVERS:BOOL=OFF
+
 //Enables UPDATE_DISCONNECTED behavior just for population of moodycamel
 FETCHCONTENT_UPDATES_DISCONNECTED_MOODYCAMEL:BOOL=OFF
 
@@ -393,8 +379,14 @@ FETCHCONTENT_UPDATES_DISCONNECTED_PLOG:BOOL=OFF
 //Git command line client
 GIT_EXECUTABLE:FILEPATH=C:/Program Files/Git/cmd/git.exe
 
+//Build for F133 Linux platform
+KTV_PLATFORM_F133_LINUX:BOOL=OFF
+
 //Use lv_drivers (framebuffer/evdev等)
-KTV_USE_LV_DRIVERS:BOOL=OFF
+KTV_USE_LV_DRIVERS:BOOL=ON
+
+//Use new platform abstraction architecture
+KTV_USE_NEW_PLATFORM_ARCH:BOOL=OFF
 
 //LVGL version/tag
 LVGL_TAG:STRING=v8.3.11
@@ -414,6 +406,12 @@ LV_ENABLE_PKGCONFIG:BOOL=OFF
 
 //Use #include "lvgl.h" instead of #include "../../lvgl.h"
 LV_LVGL_H_INCLUDE_SIMPLE:BOOL=ON
+
+//Arguments to supply to pkg-config
+PKG_CONFIG_ARGN:STRING=
+
+//pkg-config executable
+PKG_CONFIG_EXECUTABLE:FILEPATH=PKG_CONFIG_EXECUTABLE-NOTFOUND
 
 //Build plog samples
 PLOG_BUILD_SAMPLES:BOOL=OFF
@@ -507,6 +505,15 @@ ktvlv_IS_TOP_LEVEL:STATIC=ON
 ktvlv_SOURCE_DIR:STATIC=D:/dev/ktvlv/ktvlv
 
 //Value Computed by CMake
+lv_drivers_BINARY_DIR:STATIC=D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-build
+
+//Value Computed by CMake
+lv_drivers_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+lv_drivers_SOURCE_DIR:STATIC=D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lv_drivers-src
+
+//Value Computed by CMake
 lvgl_BINARY_DIR:STATIC=D:/dev/ktvlv/ktvlv/build_ninja2/_deps/lvgl-build
 
 //Value Computed by CMake
@@ -529,8 +536,6 @@ plog_SOURCE_DIR:STATIC=D:/dev/ktvlv/ktvlv/build_ninja2/_deps/plog-src
 # INTERNAL cache entries
 ########################
 
-//ADVANCED property for variable: CMAKE_ADDR2LINE
-CMAKE_ADDR2LINE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_AR
 CMAKE_AR-ADVANCED:INTERNAL=1
 //This is the directory where this CMakeCache.txt was created
@@ -575,8 +580,6 @@ CMAKE_C_FLAGS_RELEASE-ADVANCED:INTERNAL=1
 CMAKE_C_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_C_STANDARD_LIBRARIES
 CMAKE_C_STANDARD_LIBRARIES-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: CMAKE_DLLTOOL
-CMAKE_DLLTOOL-ADVANCED:INTERNAL=1
 //Path to cache edit program executable.
 CMAKE_EDIT_COMMAND:INTERNAL=C:/Program Files/CMake/bin/cmake-gui.exe
 //Executable file format
@@ -654,14 +657,8 @@ CMAKE_MODULE_LINKER_FLAGS_RELEASE-ADVANCED:INTERNAL=1
 CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_MT
 CMAKE_MT-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: CMAKE_NM
-CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=7
-//ADVANCED property for variable: CMAKE_OBJCOPY
-CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: CMAKE_OBJDUMP
-CMAKE_OBJDUMP-ADVANCED:INTERNAL=1
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=8
 //Platform information initialized
 CMAKE_PLATFORM_INFO_INITIALIZED:INTERNAL=1
 //noop for ranlib
@@ -679,8 +676,6 @@ CMAKE_RC_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1
 CMAKE_RC_FLAGS_RELEASE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_RC_FLAGS_RELWITHDEBINFO
 CMAKE_RC_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: CMAKE_READELF
-CMAKE_READELF-ADVANCED:INTERNAL=1
 //Path to CMake installation.
 CMAKE_ROOT:INTERNAL=C:/Program Files/CMake/share/cmake-3.22
 //ADVANCED property for variable: CMAKE_SHARED_LINKER_FLAGS
@@ -707,8 +702,6 @@ CMAKE_STATIC_LINKER_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1
 CMAKE_STATIC_LINKER_FLAGS_RELEASE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO
 CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: CMAKE_STRIP
-CMAKE_STRIP-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_TOOLCHAIN_FILE
 CMAKE_TOOLCHAIN_FILE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
@@ -743,6 +736,52 @@ FLAG_SUPPORTED_sdl:INTERNAL=1
 FLAG_SUPPORTED_wd4001:INTERNAL=1
 //ADVANCED property for variable: GIT_EXECUTABLE
 GIT_EXECUTABLE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: PKG_CONFIG_ARGN
+PKG_CONFIG_ARGN-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: PKG_CONFIG_EXECUTABLE
+PKG_CONFIG_EXECUTABLE-ADVANCED:INTERNAL=1
+PKG_LVGL_CFLAGS:INTERNAL=
+PKG_LVGL_CFLAGS_I:INTERNAL=
+PKG_LVGL_CFLAGS_OTHER:INTERNAL=
+PKG_LVGL_FOUND:INTERNAL=
+PKG_LVGL_INCLUDEDIR:INTERNAL=
+PKG_LVGL_LIBDIR:INTERNAL=
+PKG_LVGL_LIBS:INTERNAL=
+PKG_LVGL_LIBS_L:INTERNAL=
+PKG_LVGL_LIBS_OTHER:INTERNAL=
+PKG_LVGL_LIBS_PATHS:INTERNAL=
+PKG_LVGL_MODULE_NAME:INTERNAL=
+PKG_LVGL_PREFIX:INTERNAL=
+PKG_LVGL_STATIC_CFLAGS:INTERNAL=
+PKG_LVGL_STATIC_CFLAGS_I:INTERNAL=
+PKG_LVGL_STATIC_CFLAGS_OTHER:INTERNAL=
+PKG_LVGL_STATIC_LIBDIR:INTERNAL=
+PKG_LVGL_STATIC_LIBS:INTERNAL=
+PKG_LVGL_STATIC_LIBS_L:INTERNAL=
+PKG_LVGL_STATIC_LIBS_OTHER:INTERNAL=
+PKG_LVGL_STATIC_LIBS_PATHS:INTERNAL=
+PKG_LVGL_VERSION:INTERNAL=
+PKG_WAYLAND_CFLAGS:INTERNAL=
+PKG_WAYLAND_CFLAGS_I:INTERNAL=
+PKG_WAYLAND_CFLAGS_OTHER:INTERNAL=
+PKG_WAYLAND_FOUND:INTERNAL=
+PKG_WAYLAND_INCLUDEDIR:INTERNAL=
+PKG_WAYLAND_LIBDIR:INTERNAL=
+PKG_WAYLAND_LIBS:INTERNAL=
+PKG_WAYLAND_LIBS_L:INTERNAL=
+PKG_WAYLAND_LIBS_OTHER:INTERNAL=
+PKG_WAYLAND_LIBS_PATHS:INTERNAL=
+PKG_WAYLAND_MODULE_NAME:INTERNAL=
+PKG_WAYLAND_PREFIX:INTERNAL=
+PKG_WAYLAND_STATIC_CFLAGS:INTERNAL=
+PKG_WAYLAND_STATIC_CFLAGS_I:INTERNAL=
+PKG_WAYLAND_STATIC_CFLAGS_OTHER:INTERNAL=
+PKG_WAYLAND_STATIC_LIBDIR:INTERNAL=
+PKG_WAYLAND_STATIC_LIBS:INTERNAL=
+PKG_WAYLAND_STATIC_LIBS_L:INTERNAL=
+PKG_WAYLAND_STATIC_LIBS_OTHER:INTERNAL=
+PKG_WAYLAND_STATIC_LIBS_PATHS:INTERNAL=
+PKG_WAYLAND_VERSION:INTERNAL=
 //Install the dependencies listed in your manifest:
 //\n    If this is off, you will have to manually install your dependencies.
 //\n    See https://github.com/microsoft/vcpkg/tree/master/docs/specifications/manifests.md
@@ -765,4 +804,6 @@ Z_VCPKG_POWERSHELL_PATH:INTERNAL=C:/Program Files/PowerShell/7/pwsh.exe
 Z_VCPKG_ROOT_DIR:INTERNAL=D:/vcpkg
 //CMAKE_INSTALL_PREFIX during last run
 _GNUInstallDirs_LAST_CMAKE_INSTALL_PREFIX:INTERNAL=C:/Program Files (x86)/ktvlv
+__pkg_config_checked_PKG_LVGL:INTERNAL=1
+__pkg_config_checked_PKG_WAYLAND:INTERNAL=1
 

@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 bool sdl_init(void);
+// ✅ 关键修复：color_p 不能是 const，否则某些 LVGL 版本无法正确识别
 void sdl_display_flush(lv_disp_drv_t* disp_drv, const lv_area_t* area, lv_color_t* color_p);
 void sdl_mouse_read(lv_indev_drv_t* indev_drv, lv_indev_data_t* data);
 void sdl_keyboard_read(lv_indev_drv_t* indev_drv, lv_indev_data_t* data);

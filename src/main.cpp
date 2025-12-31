@@ -1,4 +1,7 @@
+// ✅ 关键修复：LVGL 是 C 库，必须用 extern "C" 包裹，避免 C++ 命名修饰
+extern "C" {
 #include <lvgl.h>
+}
 #include <SDL.h>
 #include <cstdio>
 #include <exception>
@@ -23,95 +26,149 @@
 #include "events/event_bus.h"
 
 static lv_disp_draw_buf_t draw_buf;
-// 双缓冲partial buffer: 约1/7屏幕高度，优化性能和稳定性
-static lv_color_t buf1[LV_HOR_RES_MAX * 100];
-static lv_color_t buf2[LV_HOR_RES_MAX * 100];
+// ✅ 第一步修复：改为全屏单buffer模式，避免partial buffer带来的复杂刷新逻辑
+// 全屏buffer：1280*720*4=3.6MB（可接受的内存开销）
+static lv_color_t buf[LV_HOR_RES_MAX * LV_VER_RES_MAX];
 
 static bool init_display() {
+    const lv_coord_t width = LV_HOR_RES_MAX;
+    const lv_coord_t height = LV_VER_RES_MAX;
+
+    // ⚠️ 防御性检查：分辨率必须有效
+    if (width <= 0 || height <= 0) {
+        PLOGE << "Invalid display resolution: " << width << "x" << height;
+        fprintf(stderr, "[INIT] ERROR: Invalid display resolution: %dx%d\n", (int)width, (int)height);
+        return false;
+    }
+
     PLOGI << "Initializing SDL display...";
-    fprintf(stderr, "[INIT] SDL display initialization...\n");
+    fprintf(stderr, "[INIT] SDL display initialization (%dx%d)...\n", (int)width, (int)height);
     if (!sdl_init()) {
         PLOGE << "SDL initialization failed!";
         return false;
     }
-    
-    // Check if SDL initialized successfully (by checking if window was created)
-    // Note: sdl_init has internal error checking, but we need to ensure window exists
-    PLOGI << "Initializing LVGL display buffer (dual buffer, partial refresh)...";
-    fprintf(stderr, "[INIT] LVGL display buffer: %dx%d (buffer size: %d lines)\n", 
-            LV_HOR_RES_MAX, LV_VER_RES_MAX, 100);
-    // 双缓冲 + partial refresh：提高稳定性，避免黑屏
-    lv_disp_draw_buf_init(&draw_buf, buf1, buf2, LV_HOR_RES_MAX * 100);
 
-    lv_disp_drv_t disp_drv;
+    PLOGI << "Initializing LVGL display buffer (full screen, single buffer)...";
+    fprintf(stderr, "[INIT] LVGL display buffer: %dx%d (full screen buffer)\n",
+            (int)width, (int)height);
+    // ✅ 第一步修复：使用全屏单buffer，第二个buffer设为nullptr
+    lv_disp_draw_buf_init(&draw_buf, buf, nullptr, width * height);
+    
+    // ✅ 诊断：检查 draw_buf 配置
+    fprintf(stderr, "[DIAG] draw_buf size: %d pixels (expected: %d)\n", 
+            (int)draw_buf.size, (int)(width * height));
+    fprintf(stderr, "[DIAG] draw_buf buf1: %p, buf2: %p\n", 
+            (void*)draw_buf.buf1, (void*)draw_buf.buf2);
+
+    // ⚠️ 关键修复：使用静态变量确保 disp_drv 在整个程序生命周期内有效
+    // LVGL 内部会保存驱动指针，如果使用局部变量可能导致悬空指针
+    static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
+    
+    // ✅ 关键修复：所有设置必须在 register 之前完成！
+    // 顺序：分辨率 → flush_cb → draw_buf → full_refresh → register
+    // ⚠️ 必须在注册前设置分辨率，否则 LVGL 会使用默认值 0x0，导致驱动无法激活
+    disp_drv.hor_res = width;
+    disp_drv.ver_res = height;
+    
+    // ⚠️ 必须设置 flush 回调，否则 LVGL 无法刷新屏幕
     disp_drv.flush_cb = sdl_display_flush;
     disp_drv.draw_buf = &draw_buf;
     
-    // ✅ 关键修复：明确设置显示驱动分辨率
-    // 这是解决 0x0 问题的核心步骤
-    // 注意：必须在注册前设置，且值必须 > 0
-    disp_drv.hor_res = LV_HOR_RES_MAX;
-    disp_drv.ver_res = LV_VER_RES_MAX;
-    disp_drv.full_refresh = 0;  // 启用partial refresh，只刷新脏区域
+    // ✅ 第一步修复：开启full_refresh，让LVGL每次都刷全屏，简化flush逻辑
+    // ⚠️ 必须在 register 之前设置，否则无效！
+    disp_drv.full_refresh = 1;
     
-    // ✅ 添加 rounder_cb 回调，确保分辨率正确传递
-    // 这个回调函数用于调整刷新区域，但也可以用来确保分辨率正确
-    disp_drv.rounder_cb = nullptr;  // 使用默认的 rounder（如果需要可以自定义）
-    
-    fprintf(stderr, "[INIT] Registering LVGL display driver: %dx%d\n", 
-            disp_drv.hor_res, disp_drv.ver_res);
-    
-    // 验证设置的值
-    if (disp_drv.hor_res == 0 || disp_drv.ver_res == 0) {
-        PLOGE << "Display driver resolution is 0x0 BEFORE registration!";
-        fprintf(stderr, "[ERROR] Display driver resolution is 0x0 BEFORE registration!\n");
-        fprintf(stderr, "[ERROR] LV_HOR_RES_MAX=%d, LV_VER_RES_MAX=%d\n", 
-                LV_HOR_RES_MAX, LV_VER_RES_MAX);
+    // ✅ 验证：确保所有关键参数在 register 前已设置
+    fprintf(stderr, "[DIAG] Before register: res=%dx%d, flush_cb=%p, full_refresh=%d\n",
+            (int)disp_drv.hor_res, (int)disp_drv.ver_res, 
+            (void*)disp_drv.flush_cb, disp_drv.full_refresh);
+
+    // ✅ Step1诊断：确认 flush_cb 被注册
+    if (disp_drv.flush_cb == NULL) {
+        fprintf(stderr, "❌ [DIAG] flush_cb NOT SET - CRITICAL ERROR!\n");
+        PLOGE << "flush_cb is NULL!";
+        return false;
+    } else {
+        fprintf(stderr, "✅ [DIAG] flush_cb is SET: %p\n", (void*)disp_drv.flush_cb);
+        PLOGI << "flush_cb registered successfully";
+    }
+
+    // ⚠️ 防御性检查：确保分辨率已正确设置
+    if (disp_drv.hor_res <= 0 || disp_drv.ver_res <= 0) {
+        PLOGE << "Display driver resolution is invalid before registration: " 
+              << disp_drv.hor_res << "x" << disp_drv.ver_res;
+        fprintf(stderr, "[INIT] ERROR: Display driver resolution is invalid: %dx%d\n",
+                (int)disp_drv.hor_res, (int)disp_drv.ver_res);
         return false;
     }
     
+    // ✅ Step2诊断：确认 full_refresh 在注册前设置
+    fprintf(stderr, "[DIAG] full_refresh = %d (must be 1 before register)\n", disp_drv.full_refresh);
+
+    fprintf(stderr, "[INIT] Registering LVGL display driver: %dx%d\n",
+            (int)disp_drv.hor_res, (int)disp_drv.ver_res);
+
     lv_disp_t* disp = lv_disp_drv_register(&disp_drv);
     if (!disp) {
         PLOGE << "LVGL display driver registration failed!";
+        fprintf(stderr, "❌ [INIT] Failed to register display driver\n");
+        return false;
+    }
+
+    // ✅ 关键诊断：注册后立即验证 flush_cb 是否仍然存在
+    // 注意：LVGL 的 disp 结构体可能不直接暴露 driver，我们通过 disp_drv 验证
+    fprintf(stderr, "[DIAG] After register: verifying flush_cb in original disp_drv...\n");
+    if (disp_drv.flush_cb == NULL) {
+        fprintf(stderr, "❌ [DIAG] CRITICAL: flush_cb is NULL in disp_drv after registration!\n");
+        return false;
+    } else {
+        fprintf(stderr, "✅ [DIAG] flush_cb still valid in disp_drv: %p\n", 
+                (void*)disp_drv.flush_cb);
+        // ✅ 验证函数指针是否指向我们的函数
+        if (disp_drv.flush_cb == sdl_display_flush) {
+            fprintf(stderr, "✅ [DIAG] flush_cb matches sdl_display_flush function\n");
+        } else {
+            fprintf(stderr, "⚠️ [DIAG] flush_cb pointer mismatch! Expected: %p, Got: %p\n",
+                    (void*)sdl_display_flush, (void*)disp_drv.flush_cb);
+        }
+    }
+
+    // ✅ 关键修复：必须设为默认显示器，否则 LVGL 不知道要把画面刷到哪里
+    // 这是解决 flush_cb 不被调用的根本原因
+    lv_disp_set_default(disp);
+    fprintf(stderr, "🎯 [INIT] LVGL default display set to %p\n", (void*)disp);
+    PLOGI << "Default display set: " << (void*)disp;
+    
+    // ✅ 决定性验证：检查当前分辨率是否被正确激活
+    lv_coord_t current_hor = lv_disp_get_hor_res(NULL);
+    lv_coord_t current_ver = lv_disp_get_ver_res(NULL);
+    fprintf(stderr, "🚩 [DIAG] Current display res: %d x %d (expected: %d x %d)\n",
+            (int)current_hor, (int)current_ver, (int)width, (int)height);
+    
+    if (current_hor != width || current_ver != height) {
+        fprintf(stderr, "❌ [DIAG] CRITICAL: Display resolution mismatch! Driver not activated!\n");
+        fprintf(stderr, "   Expected: %dx%d, Got: %dx%d\n", 
+                (int)width, (int)height, (int)current_hor, (int)current_ver);
+        PLOGE << "Display resolution mismatch - driver not activated";
+        return false;
+    } else {
+        fprintf(stderr, "✅ [DIAG] Display resolution verified - driver activated\n");
+    }
+
+    // ⚠️ 关键修复：注册后立即验证分辨率是否正确传递
+    lv_coord_t disp_w = lv_disp_get_hor_res(disp);
+    lv_coord_t disp_h = lv_disp_get_ver_res(disp);
+    
+    if (disp_w <= 0 || disp_h <= 0) {
+        PLOGE << "CRITICAL: Display driver resolution is 0x0 after registration!";
+        fprintf(stderr, "[INIT] CRITICAL ERROR: Display driver resolution is 0x0 after registration!\n");
+        fprintf(stderr, "[INIT] This will cause memory access violations in lv_timer_handler()\n");
         return false;
     }
     
-    // ✅ 关键修复：注册后立即验证并强制设置分辨率
-    // 如果 LVGL 没有正确保存分辨率，我们需要通过其他方式设置
-    lv_coord_t disp_w = lv_disp_get_hor_res(disp);
-    lv_coord_t disp_h = lv_disp_get_ver_res(disp);
-    fprintf(stderr, "[INIT] Display driver registered: %dx%d (from lv_disp_get_*_res)\n", 
-            (int)disp_w, (int)disp_h);
-    
-    // 如果分辨率仍然是 0，尝试通过设置屏幕尺寸来触发分辨率更新
-    if (disp_w == 0 || disp_h == 0) {
-        PLOGW << "Display driver resolution is 0x0 after registration, attempting fix...";
-        fprintf(stderr, "[WARN] Display driver resolution is 0x0 after registration!\n");
-        fprintf(stderr, "[WARN] Attempting to fix by setting screen size...\n");
-        
-        // 尝试获取默认屏幕并设置尺寸
-        lv_obj_t* default_scr = lv_scr_act();
-        if (default_scr) {
-            lv_obj_set_size(default_scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
-            fprintf(stderr, "[WARN] Set default screen size to %dx%d\n", 
-                    LV_HOR_RES_MAX, LV_VER_RES_MAX);
-        }
-        
-        // 再次检查分辨率
-        disp_w = lv_disp_get_hor_res(disp);
-        disp_h = lv_disp_get_ver_res(disp);
-        fprintf(stderr, "[WARN] After fix attempt: %dx%d\n", (int)disp_w, (int)disp_h);
-        
-        // 如果仍然是 0，这是一个严重问题，但不应该阻止程序运行
-        // 让主循环中的自动修复机制来处理
-        if (disp_w == 0 || disp_h == 0) {
-            PLOGW << "Display resolution still 0x0, will rely on auto-fix in main loop";
-            fprintf(stderr, "[WARN] Display resolution still 0x0, will rely on auto-fix in main loop\n");
-        }
-    }
-    
-    PLOGI << "Display driver registered successfully";
+    fprintf(stderr, "[INIT] Display driver registered successfully: %dx%d\n", (int)disp_w, (int)disp_h);
+    PLOGI << "Display driver registered successfully: " << disp_w << "x" << disp_h;
     return true;
 }
 
@@ -162,169 +219,6 @@ static void init_input() {
     kb_drv.type = LV_INDEV_TYPE_KEYPAD;
     kb_drv.read_cb = sdl_keyboard_read;
     lv_indev_drv_register(&kb_drv);
-}
-
-/**
- * @brief 调试函数：打印屏幕和显示驱动的详细信息
- * 用于诊断 0x0 尺寸问题
- */
-static void dbg_screen_info() {
-    lv_obj_t* scr = lv_scr_act();
-    lv_disp_t* disp = lv_disp_get_default();
-    
-    fprintf(stderr, "\n[DBG] ========== Screen Info ==========\n");
-    fprintf(stderr, "[DBG] Screen object: %p\n", (void*)scr);
-    if (scr) {
-        fprintf(stderr, "[DBG] Screen valid: %s\n", lv_obj_is_valid(scr) ? "YES" : "NO");
-        fprintf(stderr, "[DBG] Screen size: %dx%d\n", 
-                (int)lv_obj_get_width(scr), (int)lv_obj_get_height(scr));
-        fprintf(stderr, "[DBG] Screen children: %u\n", (unsigned)lv_obj_get_child_cnt(scr));
-    } else {
-        fprintf(stderr, "[DBG] Screen object is NULL!\n");
-    }
-    
-    fprintf(stderr, "[DBG] Display driver: %p\n", (void*)disp);
-    if (disp) {
-        lv_coord_t disp_w = lv_disp_get_hor_res(disp);
-        lv_coord_t disp_h = lv_disp_get_ver_res(disp);
-        fprintf(stderr, "[DBG] Display resolution: %dx%d\n", (int)disp_w, (int)disp_h);
-        if (disp_w == 0 || disp_h == 0) {
-            fprintf(stderr, "[DBG] ⚠️  Display resolution is 0x0! Using LV_HOR_RES_MAX/LV_VER_RES_MAX instead.\n");
-        }
-    } else {
-        fprintf(stderr, "[DBG] Display driver is NULL!\n");
-    }
-    fprintf(stderr, "[DBG] LV_HOR_RES_MAX: %d, LV_VER_RES_MAX: %d\n", 
-            LV_HOR_RES_MAX, LV_VER_RES_MAX);
-    fprintf(stderr, "[DBG] ✅ Effective resolution (should be used): %dx%d\n", 
-            LV_HOR_RES_MAX, LV_VER_RES_MAX);
-    fprintf(stderr, "[DBG] ====================================\n\n");
-}
-
-/**
- * @brief 检查屏幕是否ready，可以安全刷新
- * @param check_count 检查次数（用于调试输出）
- * @return true 如果屏幕ready，false 如果屏幕未ready
- * 
- * ✅ READY 判定标准（三项必须全部满足）：
- * 1. scr != null && lv_obj_is_valid(scr)
- * 2. size != 0 (width > 0 && height > 0)
- * 3. child_count > 0 (KTV界面不应该为空屏)
- * 
- * 这是解决首次刷新崩溃的核心机制
- */
-static bool is_screen_ready_for_refresh(int check_count = 0) {
-    // 1. 检查屏幕是否存在
-    lv_obj_t* scr = lv_scr_act();
-    if (scr == NULL) {
-        if (check_count < 3) {
-            fprintf(stderr, "Screen ready check #%d: Screen not exist yet\n", check_count);
-        }
-        return false;
-    }
-    
-    // 2. 检查屏幕对象是否有效
-    if (!lv_obj_is_valid(scr)) {
-        if (check_count < 3) {
-            fprintf(stderr, "Screen ready check #%d: Screen object is invalid\n", check_count);
-        }
-        return false;
-    }
-    
-    // 3. 检查是否有至少一个可见子对象（KTV界面不应该为空屏）
-    uint32_t child_cnt = lv_obj_get_child_cnt(scr);
-    if (child_cnt == 0) {
-        if (check_count < 3) {
-            fprintf(stderr, "Screen ready check #%d: Screen empty (no children), skip\n", check_count);
-        }
-        return false;
-    }
-    
-    // 4. 检查屏幕尺寸是否正常
-    lv_coord_t width = lv_obj_get_width(scr);
-    lv_coord_t height = lv_obj_get_height(scr);
-    
-    // ✅ 关键修复：检测异常值（负数、过大值、0）
-    // 这些异常值通常表示内存损坏或 LVGL 内部状态错误
-    bool size_invalid = false;
-    if (width <= 0 || height <= 0) {
-        size_invalid = true;
-    }
-    // 检测异常大的值（超过合理范围，比如 > 10000）
-    if (width > 10000 || height > 10000) {
-        size_invalid = true;
-        if (check_count <= 3) {
-            fprintf(stderr, "Screen ready check #%d: ⚠️ Invalid screen size detected: %dx%d (too large!)\n",
-                    check_count, (int)width, (int)height);
-        }
-    }
-    
-    if (size_invalid) {
-        // ✅ 强制使用常量值，不依赖 LVGL 的返回值
-        // 因为 LVGL 可能返回损坏的值（负数、异常大值等）
-        lv_coord_t safe_width = LV_HOR_RES_MAX;
-        lv_coord_t safe_height = LV_VER_RES_MAX;
-        
-        if (check_count <= 3) {
-            fprintf(stderr, "Screen ready check #%d: ⚠️ Screen size invalid (width=%d, height=%d), "
-                    "FORCING to safe values (%dx%d)...\n", 
-                    check_count, (int)width, (int)height, (int)safe_width, (int)safe_height);
-        }
-        
-        // 强制设置屏幕尺寸（使用安全值）
-        lv_obj_set_size(scr, safe_width, safe_height);
-        
-        // 重新获取尺寸（但可能仍然是异常值，所以不依赖它）
-        width = lv_obj_get_width(scr);
-        height = lv_obj_get_height(scr);
-        
-        // 如果仍然是异常值，使用安全值进行判断
-        if (width <= 0 || height <= 0 || width > 10000 || height > 10000) {
-            if (check_count <= 3) {
-                fprintf(stderr, "Screen ready check #%d: ⚠️ LVGL still returns invalid size, using safe values for check\n",
-                        check_count);
-            }
-            // 使用安全值进行后续判断
-            width = safe_width;
-            height = safe_height;
-        }
-    }
-    
-    // 如果尺寸有效，直接通过
-    if (width > 0 && height > 0) {
-        if (check_count < 3) {
-            fprintf(stderr, "Screen ready check #%d: ✅ All conditions met (size=%dx%d, children=%u), READY!\n", 
-                    check_count, (int)width, (int)height, (unsigned)child_cnt);
-        }
-        return true;
-    }
-    
-    // ✅ 如果尺寸仍然无效，说明布局还没计算完成或 LVGL 状态异常
-    // 由于我们已经强制设置了屏幕尺寸，对象本身是有效的
-    // 但 LVGL 的布局计算是延迟的，需要等待几个周期
-    
-    // 简化逻辑：最多等待 10 次检查（约 100ms），然后允许刷新
-    // 此时屏幕对象有效且有子对象，让 LVGL 的 timer handler 来计算布局和尺寸
-    if (check_count < 10) {
-        if (check_count < 3) {
-            fprintf(stderr, "Screen ready check #%d: Screen size not ready yet (width=%d, height=%d), waiting...\n", 
-                    check_count, (int)width, (int)height);
-        }
-        return false;
-    }
-    
-    // ✅ 10次检查后，即使尺寸异常也允许刷新
-    // 此时屏幕对象有效且有子对象，我们已经强制设置了安全尺寸
-    // 让 LVGL 的 timer handler 来处理，即使它可能会崩溃，也比无限等待好
-    // 这是"免疫"机制的最后防线
-    if (check_count == 10) {
-        fprintf(stderr, "Screen ready check #%d: ⚠️ Size still invalid after 10 checks, "
-                "but allowing refresh (using forced safe size %dx%d)\n", 
-                check_count, LV_HOR_RES_MAX, LV_VER_RES_MAX);
-        // 最后一次强制设置
-        lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
-    }
-    return true;
 }
 
 #ifdef __cplusplus
@@ -378,22 +272,48 @@ int SDL_main(int argc, char* argv[]) {
         lv_coord_t actual_width = LV_HOR_RES_MAX;
         lv_coord_t actual_height = LV_VER_RES_MAX;
         
-        if (default_disp) {
-            lv_coord_t disp_w = lv_disp_get_hor_res(default_disp);
-            lv_coord_t disp_h = lv_disp_get_ver_res(default_disp);
-            if (disp_w > 0 && disp_h > 0) {
-                actual_width = disp_w;
-                actual_height = disp_h;
-                fprintf(stderr, "[INIT] Using display driver resolution: %dx%d\n", 
-                        (int)actual_width, (int)actual_height);
-            } else {
-                fprintf(stderr, "[INIT] Display driver resolution is 0x0, using LV_HOR_RES_MAX/LV_VER_RES_MAX: %dx%d\n",
-                        (int)actual_width, (int)actual_height);
-            }
-        } else {
-            fprintf(stderr, "[INIT] No display driver, using LV_HOR_RES_MAX/LV_VER_RES_MAX: %dx%d\n",
-                    (int)actual_width, (int)actual_height);
+        if (!default_disp) {
+            PLOGE << "CRITICAL: No display driver found! This will cause crashes.";
+            fprintf(stderr, "[INIT] CRITICAL ERROR: No display driver found!\n");
+            fprintf(stderr, "[INIT] This will cause memory access violations in lv_timer_handler()\n");
+            fprintf(stderr, "Press any key to exit...\n");
+#ifdef _WIN32
+            _getch();
+#else
+            getchar();
+#endif
+            return -1;
         }
+        
+        lv_coord_t disp_w = lv_disp_get_hor_res(default_disp);
+        lv_coord_t disp_h = lv_disp_get_ver_res(default_disp);
+        
+        // ⚠️ 关键修复：如果分辨率是 0x0，立即报错并退出
+        // 继续运行会导致 lv_timer_handler() 访问非法内存
+        if (disp_w <= 0 || disp_h <= 0) {
+            PLOGE << "CRITICAL: Display driver resolution is 0x0! This will cause crashes.";
+            fprintf(stderr, "[INIT] CRITICAL ERROR: Display driver resolution is 0x0!\n");
+            fprintf(stderr, "[INIT] Expected: %dx%d, Got: %dx%d\n",
+                    (int)LV_HOR_RES_MAX, (int)LV_VER_RES_MAX, (int)disp_w, (int)disp_h);
+            fprintf(stderr, "[INIT] This will cause memory access violations in lv_timer_handler()\n");
+            fprintf(stderr, "[INIT] Possible causes:\n");
+            fprintf(stderr, "[INIT]   1. disp_drv.hor_res/ver_res not set before lv_disp_drv_register()\n");
+            fprintf(stderr, "[INIT]   2. LVGL internal error during driver registration\n");
+            fprintf(stderr, "[INIT]   3. Display driver structure was destroyed before registration\n");
+            fprintf(stderr, "Press any key to exit...\n");
+#ifdef _WIN32
+            _getch();
+#else
+            getchar();
+#endif
+            return -1;
+        }
+        
+        actual_width = disp_w;
+        actual_height = disp_h;
+        fprintf(stderr, "[INIT] Using display driver resolution: %dx%d\n", 
+                (int)actual_width, (int)actual_height);
+        PLOGI << "Display resolution confirmed: " << actual_width << "x" << actual_height;
     
         PLOGI << "Initializing UI system (scale, focus, theme)...";
         // ✅ 使用实际分辨率初始化 UIScale，设计稿标准为 1920x1080
@@ -414,16 +334,16 @@ int SDL_main(int argc, char* argv[]) {
         } catch (const std::exception& e) {
             fprintf(stderr, "Exception while creating main screen: %s\n", e.what());
             PLOGE << "Exception creating main screen: " << e.what();
-            throw;  // Re-throw exception
+            throw;
         } catch (...) {
             fprintf(stderr, "Unknown exception while creating main screen\n");
             PLOGE << "Unknown exception creating main screen";
-            throw;  // Re-throw exception
+            throw;
         }
-        
-        if (!scr) {
+
+        if (!scr || !lv_obj_is_valid(scr)) {
             PLOGE << "Failed to create main screen!";
-            fprintf(stderr, "create_main_screen returned NULL\n");
+            fprintf(stderr, "create_main_screen returned NULL or invalid\n");
             fprintf(stderr, "Press any key to exit...\n");
 #ifdef _WIN32
             _getch();
@@ -433,110 +353,153 @@ int SDL_main(int argc, char* argv[]) {
             return -1;
         }
         fprintf(stderr, "Main screen created successfully\n");
-        
-        // 验证屏幕对象
-        if (!lv_obj_is_valid(scr)) {
-            PLOGE << "Screen object is invalid after creation!";
-            fprintf(stderr, "ERROR: Screen object is invalid after creation!\n");
-            return -1;
-        }
-        
-        // ✅ 关键修复：在加载屏幕前先设置尺寸
-        // 确保屏幕对象有正确的尺寸，避免 0x0 问题
-        fprintf(stderr, "Setting screen size: %dx%d\n", LV_HOR_RES_MAX, LV_VER_RES_MAX);
-        lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
-        
-        // 加载屏幕（不立即刷新）
-        // 注意：UI必须在驱动注册之后创建（已确保）
-        PLOGI << "Loading screen...";
-        fprintf(stderr, "Loading screen...\n");
+
+        // ✅ 关键修复：确保屏幕被正确加载
         lv_scr_load(scr);
+        fprintf(stderr, "[INIT] Screen loaded\n");
         
-        // 验证屏幕已加载
-        lv_obj_t* current_screen = lv_scr_act();
-        if (current_screen != scr) {
-            PLOGW << "Screen load mismatch!";
-            fprintf(stderr, "WARNING: Screen load mismatch! Expected %p, got %p\n", 
-                    (void*)scr, (void*)current_screen);
-        }
+        // ✅ 关键修复：创建屏幕后立即更新布局，确保UI对象正确布局
+        fprintf(stderr, "[INIT] Updating screen layout...\n");
+        lv_obj_update_layout(scr);
         
-        // ✅ 再次确保屏幕尺寸（加载后可能被重置）
+        // ✅ 关键修复：不要在初始化阶段立即触发布局刷新
+        // 将首次刷新延迟到主循环，让LVGL自然处理，避免卡死
+        fprintf(stderr, "[INIT] Screen created, deferring first refresh to main loop...\n");
+        
+        // ✅ 关键修复：只设置屏幕尺寸（这是安全的，不会触发布局计算）
         lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
         
-        // 验证尺寸设置成功
-        lv_coord_t w = lv_obj_get_width(scr);
-        lv_coord_t h = lv_obj_get_height(scr);
-        fprintf(stderr, "Screen size after set: %dx%d\n", (int)w, (int)h);
-        if (w == 0 || h == 0) {
-            PLOGW << "Screen size still 0x0 after set_size, will retry in main loop";
-            fprintf(stderr, "WARNING: Screen size still 0x0, will retry in main loop\n");
+        // ✅ 关键修复：初始化 tick 系统（必须在主循环前）
+        // LVGL 需要 tick 才能正确工作
+        lv_tick_inc(1);  // 初始化 tick
+        
+        // ✅ 关键修复：短暂延迟，让对象创建完成（但不触发刷新）
+        SDL_Delay(20);
+        
+        // ✅ 关键修复：标记屏幕无效，让主循环自然处理刷新
+        lv_obj_invalidate(scr);
+        fprintf(stderr, "[INIT] Screen invalidated, first refresh will happen in main loop\n");
+        
+        // ✅ 强制测试：创建一个简单的测试对象，确保有内容需要渲染
+        // 这可以强制 LVGL 触发 flush_cb
+        lv_obj_t* test_obj = lv_obj_create(scr);
+        if (test_obj) {
+            lv_obj_set_size(test_obj, 200, 100);
+            lv_obj_set_pos(test_obj, 50, 50);
+            lv_obj_set_style_bg_color(test_obj, lv_color_hex(0xFF0000), 0); // 红色背景
+            lv_obj_set_style_bg_opa(test_obj, LV_OPA_COVER, 0);
+            lv_obj_invalidate(test_obj);
+            fprintf(stderr, "[INIT] Test object created (red rectangle) to force refresh\n");
         }
-        
-        // ✅ 关键修复：不在初始化阶段立即触发布局刷新
-        // 原因：UI对象树可能尚未完全稳定，过早刷新会导致0xC0000005内存访问异常
-        // 解决方案：将首次刷新延迟到主循环中，让LVGL自然处理
-        fprintf(stderr, "Screen loaded, deferring first refresh to main loop...\n");
-        PLOGI << "Screen loaded successfully, first refresh will happen in main loop";
-        
-        // 短暂延迟，让对象创建完成（但不触发刷新）
-        SDL_Delay(20);  // 给对象创建和挂载一些时间
-        
-        // 调试信息：打印屏幕和显示驱动状态
-        dbg_screen_info();
-        
+
         PLOGI << "Initialization complete, entering main loop";
         PLOGI << "Tip: Close window or press ESC to exit";
         fprintf(stderr, "Program ready. Close window or press ESC to exit.\n");
 
         // 主循环：按照最佳实践，刷新权完全交给LVGL
-        // 顺序：先lv_timer_handler（触发渲染），再处理SDL事件
+        // 顺序：先更新 tick，再 lv_timer_handler（触发渲染），再处理SDL事件
         bool quit = false;
         SDL_Event e;
         int loop_count = 0;
-        bool first_refresh_done = false;  // 标记首次刷新是否完成
-        int ready_check_count = 0;  // 记录ready检查次数
+        
+        // ✅ 关键修复：初始化 SDL tick 跟踪
+        uint32_t last_tick = SDL_GetTicks();
+        bool first_loop = true;
+        int loop_count_before_flush = 0;
+        
+        fprintf(stderr, "[MAIN] Starting main loop, last_tick=%u\n", last_tick);
         
         while (!quit) {
-            // 1. 先处理LVGL定时器（触发渲染刷新和输入读取）
-            //    刷新权交给LVGL，SDL只做承载窗口+显存贴图
+            // ✅ 核心修复：LVGL tick 更新（必须在 lv_timer_handler 之前）
+            // 这是 LVGL 的心跳，没有 tick → 没有刷新 → flush 不会触发
+            uint32_t now = SDL_GetTicks();
+            uint32_t elapsed = now - last_tick;
             
-            // ✅ 首次刷新保护：确保屏幕对象完全ready后再刷新
-            // READY标准：屏幕存在 + 尺寸正常 + 有子对象
-            if (!first_refresh_done) {
-                ready_check_count++;
-                if (is_screen_ready_for_refresh(ready_check_count)) {
-                    // 屏幕已ready，可以安全刷新
-                    first_refresh_done = true;
-                    fprintf(stderr, "\n🔥 First refresh: Screen is READY (check #%d), entering normal refresh cycle\n", 
-                            ready_check_count);
-                    PLOGI << "🔥 First refresh: Screen READY, entering normal cycle";
-                } else {
-                    // 屏幕未ready，跳过本次刷新，等待下一轮
-                    // 只在前几次输出日志，避免刷屏
-                    if (ready_check_count <= 5) {
-                        fprintf(stderr, "First refresh: screen not ready yet (check #%d), skipping...\n", 
-                                ready_check_count);
-                    }
-                    SDL_Delay(10);
-                    continue;
+            // ⚠️ 关键：即使 elapsed = 0，也要确保 tick 系统已初始化
+            // 第一次循环时可能 elapsed = 0，但后续必须更新
+            if (elapsed > 0 || first_loop) {
+                lv_tick_inc(elapsed > 0 ? elapsed : 1);  // 首次至少给 1ms
+                if (first_loop || loop_count < 5) {
+                    fprintf(stderr, "[MAIN] Tick updated: elapsed=%ums (loop #%d)\n", 
+                            elapsed > 0 ? elapsed : 1, loop_count);
                 }
+                last_tick = now;
             }
             
+            // ✅ 调试：首次循环时强制触发刷新
+            if (first_loop) {
+                fprintf(stderr, "[MAIN] Entering main loop, forcing first refresh...\n");
+                first_loop = false;
+                
+                // ⚠️ 关键：先运行一次 timer handler，让 LVGL 初始化内部状态
+                fprintf(stderr, "[MAIN] Running first lv_timer_handler() to initialize LVGL...\n");
+                lv_timer_handler();
+                
+                // 强制标脏整个屏幕
+                lv_obj_t* scr = lv_scr_act();
+                if (scr) {
+                    lv_obj_invalidate(scr);
+                    fprintf(stderr, "[MAIN] Screen invalidated\n");
+                }
+                
+                // 再次运行 timer handler，这次应该触发刷新
+                fprintf(stderr, "[MAIN] Running second lv_timer_handler() to trigger refresh...\n");
+                lv_timer_handler();
+                
+                // 如果还没刷新，强制刷新
+                lv_disp_t* disp = lv_disp_get_default();
+                if (disp) {
+                    fprintf(stderr, "[MAIN] Calling lv_refr_now() as fallback...\n");
+                    lv_refr_now(disp);
+                    fprintf(stderr, "[MAIN] lv_refr_now() called, check for 🔥 FLUSH CALLED logs\n");
+                }
+            }
+
+            // ✅ 核心修复：调用 LVGL timer handler（触发渲染）
+            // 这是 LVGL 的刷新引擎，必须每帧调用
+            uint32_t task_delay = 5;
             try {
-                uint32_t task_delay = safe_lv_timer_handler();
-                // 使用LVGL建议的延迟时间，最小5ms避免CPU 100%
-                SDL_Delay(task_delay > 5 ? task_delay : 5);
+                // ✅ 关键：每次循环都强制标脏一次（仅前几次，用于诊断）
+                if (loop_count < 5) {
+                    lv_obj_t* scr = lv_scr_act();
+                    if (scr) {
+                        lv_obj_invalidate(scr);
+                        if (loop_count == 0) {
+                            fprintf(stderr, "[MAIN] Screen invalidated for first timer handler call\n");
+                        }
+                    }
+                }
+                
+                // ⚠️ 关键：调用 timer handler，这会触发 flush_cb
+                task_delay = safe_lv_timer_handler();
+                
+                // ✅ 调试：前几次循环输出信息
+                loop_count_before_flush++;
+                if (loop_count_before_flush <= 10) {
+                    fprintf(stderr, "[MAIN] Loop #%d: lv_timer_handler returned delay=%dms\n", 
+                            loop_count_before_flush, task_delay);
+                }
             } catch (const std::exception& e) {
                 fprintf(stderr, "ERROR in lv_timer_handler: %s\n", e.what());
                 PLOGE << "lv_timer_handler exception: " << e.what();
-                SDL_Delay(5);  // 继续运行，不要退出
             } catch (...) {
                 fprintf(stderr, "ERROR in lv_timer_handler: unknown exception\n");
                 PLOGE << "lv_timer_handler unknown exception";
-                SDL_Delay(5);  // 继续运行，不要退出
+            }
+
+            // ✅ 关键修复：在主线程中分发 EventBus 事件，确保所有 UI 更新都在主线程执行
+            // 这是避免多线程访问 LVGL 导致 0xC0000005 崩溃的关键步骤
+            // 所有后台线程（下载、播放器等）只能通过 EventBus 发布事件，不能直接操作 UI
+            try {
+                ktv::events::EventBus::getInstance().dispatchOnUiThread();
+            } catch (const std::exception& e) {
+                fprintf(stderr, "ERROR in EventBus dispatch: %s\n", e.what());
+                PLOGE << "EventBus dispatch exception: " << e.what();
+            } catch (...) {
+                fprintf(stderr, "ERROR in EventBus dispatch: unknown exception\n");
+                PLOGE << "EventBus dispatch unknown exception";
             }
             
-            // 2. 处理SDL事件（输入事件）
             while (SDL_PollEvent(&e)) {
                 try {
                     if (e.type == SDL_QUIT) {
@@ -559,10 +522,10 @@ int SDL_main(int argc, char* argv[]) {
                 }
             }
             
-            // 注意：不在这里调用SDL_RenderPresent()！
-            // RenderPresent只在flush_cb中调用，刷新权完全交给LVGL
-            
-            // Output log every 1000 loops (approximately 5 seconds)
+            // ✅ 关键修复：避免 CPU 打满，让 LVGL 有机会触发刷新
+            // 这是 LVGL 刷新循环的关键，没有 delay → 刷新可能被跳过
+            SDL_Delay(task_delay > 5 ? task_delay : 5);
+
             loop_count++;
             if (loop_count % 1000 == 0) {
                 PLOGI << "Main loop running... (count: " << loop_count << ")";

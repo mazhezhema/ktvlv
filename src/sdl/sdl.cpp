@@ -46,34 +46,60 @@ bool sdl_init(void) {
     }
     fprintf(stderr, "SDL window created: %dx%d\n", LV_HOR_RES_MAX, LV_VER_RES_MAX);
     
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    // ✅ 关键修复：优先使用软件渲染，避免 GPU/SDL 内部渲染器劫持 flush_cb
+    // 在 flush_cb 正常工作前，必须使用 SOFTWARE 模式确保控制权
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     if (!renderer) {
-        fprintf(stderr, "SDL renderer creation failed, trying software renderer: %s\n", SDL_GetError());
-        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+        fprintf(stderr, "[SDL] Software renderer failed: %s\n", SDL_GetError());
+        // 如果软件渲染失败，尝试硬件加速（但不推荐，可能绕过 flush_cb）
+        fprintf(stderr, "[SDL] Falling back to hardware renderer...\n");
+        renderer = SDL_CreateRenderer(window, -1, 
+            SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
         if (!renderer) {
-            fprintf(stderr, "SDL software renderer creation also failed: %s\n", SDL_GetError());
+            fprintf(stderr, "❌ [SDL] All renderers failed: %s\n", SDL_GetError());
             SDL_DestroyWindow(window);
             SDL_Quit();
             return false;
         }
+        fprintf(stderr, "⚠️ [SDL] Using ACCELERATED renderer (fallback, may bypass flush_cb)\n");
+    } else {
+        fprintf(stderr, "✅ [SDL] Using SOFTWARE renderer (flush_cb will work)\n");
     }
-    fprintf(stderr, "SDL renderer created successfully\n");
     
+    // ✅ 诊断：检查 renderer 信息
+    SDL_RendererInfo info;
+    if (SDL_GetRendererInfo(renderer, &info) == 0) {
+        fprintf(stderr, "[SDL] Renderer: %s, flags=0x%x\n", info.name, info.flags);
+    }
+    
+    // ✅ Step2修复：明确使用 32bit ARGB8888 格式，使用 STREAMING 模式以便频繁更新
     texture = SDL_CreateTexture(
         renderer,
-        SDL_PIXELFORMAT_ARGB8888,
-        SDL_TEXTUREACCESS_STATIC,
+        SDL_PIXELFORMAT_ARGB8888,  // 明确指定 32bit ARGB
+        SDL_TEXTUREACCESS_STREAMING,  // 改为 STREAMING，适合频繁更新
         LV_HOR_RES_MAX,
         LV_VER_RES_MAX
     );
     if (!texture) {
-        fprintf(stderr, "SDL texture creation failed: %s\n", SDL_GetError());
+        fprintf(stderr, "❌ [SDL] Texture creation failed: %s\n", SDL_GetError());
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return false;
     }
-    fprintf(stderr, "SDL texture created successfully\n");
+    
+    // ✅ 诊断：检查 texture 格式
+    Uint32 format;
+    int access, w, h;
+    if (SDL_QueryTexture(texture, &format, &access, &w, &h) == 0) {
+        fprintf(stderr, "[SDL] Texture created: %dx%d, format=0x%x (ARGB8888=0x%x), access=%d\n",
+                w, h, format, SDL_PIXELFORMAT_ARGB8888, access);
+        if (format != SDL_PIXELFORMAT_ARGB8888) {
+            fprintf(stderr, "⚠️ [SDL] WARNING: Texture format mismatch! Expected ARGB8888\n");
+        }
+    }
+    fprintf(stderr, "[SDL] Texture created successfully\n");
     
     // Clear renderer with black background
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -83,127 +109,71 @@ bool sdl_init(void) {
     return true;
 }
 
+// ✅ 完整最小可运行驱动 - 确保 flush_cb 拥有控制权
+// ⭐ 必须在 extern "C" 块内，确保函数符号不被 C++ 命名修饰
+extern "C" {
 void sdl_display_flush(lv_disp_drv_t* disp_drv, const lv_area_t* area, lv_color_t* color_p) {
-    // Always log that flush is being called (for first 20 times)
     static int flush_count = 0;
     flush_count++;
     
-    if (flush_count <= 20) {
-        fprintf(stderr, "[FLUSH] sdl_display_flush called (#%d): area=(%d,%d)-(%d,%d), size=%dx%d\n", 
-                flush_count, area->x1, area->y1, area->x2, area->y2,
-                (area->x2 - area->x1 + 1), (area->y2 - area->y1 + 1));
-    }
+    int w = area->x2 - area->x1 + 1;
+    int h = area->y2 - area->y1 + 1;
+    fprintf(stderr, "🔥 FLUSH %d x %d\n", w, h);
     
-    if (!renderer || !texture) {
-        fprintf(stderr, "ERROR: sdl_display_flush called but renderer or texture is NULL! (flush #%d)\n", flush_count);
+    // 基本NULL检查
+    if (!renderer || !texture || !color_p) {
+        fprintf(stderr, "❌ [FLUSH] ERROR: renderer/texture/color_p NULL (flush #%d)\n", flush_count);
         lv_disp_flush_ready(disp_drv);
         return;
     }
 
-    int32_t x1 = area->x1;
-    int32_t y1 = area->y1;
-    int32_t x2 = area->x2;
-    int32_t y2 = area->y2;
-
-    // Boundary check
-    if (x1 < 0) x1 = 0;
-    if (y1 < 0) y1 = 0;
-    if (x2 >= LV_HOR_RES_MAX) x2 = LV_HOR_RES_MAX - 1;
-    if (y2 >= LV_VER_RES_MAX) y2 = LV_VER_RES_MAX - 1;
+    // ✅ 极简版：直接使用 color_p，全屏更新
+    // full_refresh 模式下，area 总是全屏，直接全屏更新
+    const int pitch = LV_HOR_RES_MAX * 4;  // 32bit = 4字节
     
-    if (x1 > x2 || y1 > y2) {
-        lv_disp_flush_ready(disp_drv);
-        return;
-    }
-
-    int32_t w = (x2 - x1 + 1);
-    int32_t h = (y2 - y1 + 1);
-    
-    if (w <= 0 || h <= 0 || w > LV_HOR_RES_MAX || h > LV_VER_RES_MAX) {
-        lv_disp_flush_ready(disp_drv);
-        return;
-    }
-
-    SDL_Rect rect;
-    rect.x = x1;
-    rect.y = y1;
-    rect.w = w;
-    rect.h = h;
-
-    // 检查 color_p 指针有效性
-    if (!color_p) {
-        fprintf(stderr, "ERROR: sdl_display_flush called with NULL color_p! (flush #%d)\n", flush_count);
-        lv_disp_flush_ready(disp_drv);
-        return;
-    }
-    
-    // Convert LVGL color format to SDL format
-    // Use static buffer to avoid dynamic allocation
+    // ✅ 像素格式转换：LVGL 32bit (BGRA) -> SDL ARGB8888
     static uint32_t pixel_buf[LV_HOR_RES_MAX * LV_VER_RES_MAX];
-    uint32_t* pixels = pixel_buf;
+    const size_t total_pixels = LV_HOR_RES_MAX * LV_VER_RES_MAX;
     
-    // 计算缓冲区大小（color_p 的大小应该是 w * h）
-    size_t color_buf_size = (size_t)w * h;
-    size_t pixel_buf_size = (size_t)w * h;
-    
-    // 确保不会溢出静态缓冲区
-    if (pixel_buf_size > (size_t)(LV_HOR_RES_MAX * LV_VER_RES_MAX)) {
-        fprintf(stderr, "ERROR: Region too large! w=%d, h=%d (flush #%d)\n", w, h, flush_count);
-        lv_disp_flush_ready(disp_drv);
-        return;
-    }
-    
-    // LVGL 32-bit color format: lv_color32_t structure is {blue, green, red, alpha}
-    // SDL needs ARGB8888 format, manually build ARGB8888: A R G B
-    // color_p 是行优先数组，大小为 w * h
-    for (int32_t y = 0; y < h; y++) {
-        for (int32_t x = 0; x < w; x++) {
-            size_t idx = (size_t)(y * w + x);
-            
-            // 边界检查：确保不超出缓冲区
-            if (idx >= color_buf_size) {
-                fprintf(stderr, "ERROR: Index out of bounds! idx=%zu, size=%zu (flush #%d)\n", 
-                        idx, color_buf_size, flush_count);
-                break;  // 跳出内层循环
-            }
-            
-            // 安全访问 color_p
-            lv_color_t color = color_p[idx];
-            // Manually build ARGB8888: A R G B (big-endian)
-            uint32_t argb = ((uint32_t)color.ch.alpha << 24) | 
-                           ((uint32_t)color.ch.red << 16) | 
-                           ((uint32_t)color.ch.green << 8) | 
-                           (uint32_t)color.ch.blue;
-            pixels[idx] = argb;
-        }
+    for (size_t i = 0; i < total_pixels; i++) {
+        lv_color_t color = color_p[i];
+        // 构建 ARGB8888：A(alpha) R(red) G(green) B(blue)
+        pixel_buf[i] = ((uint32_t)color.ch.alpha << 24) | 
+                      ((uint32_t)color.ch.red << 16) | 
+                      ((uint32_t)color.ch.green << 8) | 
+                      (uint32_t)color.ch.blue;
     }
 
-    // Update texture
-    if (SDL_UpdateTexture(texture, &rect, pixels, w * sizeof(uint32_t)) != 0) {
-        fprintf(stderr, "ERROR: SDL_UpdateTexture failed: %s (flush #%d)\n", SDL_GetError(), flush_count);
+    // ✅ 全屏更新 texture
+    if (SDL_UpdateTexture(texture, NULL, pixel_buf, pitch) != 0) {
+        fprintf(stderr, "❌ [FLUSH] SDL_UpdateTexture failed: %s\n", SDL_GetError());
         lv_disp_flush_ready(disp_drv);
         return;
     }
-    
-    // Copy texture to renderer (using same rect as destination)
-    if (SDL_RenderCopy(renderer, texture, &rect, &rect) != 0) {
-        fprintf(stderr, "ERROR: SDL_RenderCopy failed: %s (flush #%d)\n", SDL_GetError(), flush_count);
-        lv_disp_flush_ready(disp_drv);
-        return;
-    }
-    
-    // 关键：刷新权交给LVGL，SDL只做承载
-    // RenderPresent必须在flush_cb中调用，不要在主循环中调用
-    // 这样可以避免SDL和LVGL同时刷屏导致的冲突和黑屏
+
+    // ✅ 全屏渲染
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
     
-    if (flush_count <= 10) {
-        fprintf(stderr, "Screen flush #%d completed successfully\n", flush_count);
-    }
-    
-    // 必须调用！通知LVGL刷新完成，否则会阻塞和死锁
+    // 必须调用！通知LVGL刷新完成
     lv_disp_flush_ready(disp_drv);
 }
+
+void sdl_mouse_read(lv_indev_drv_t* indev_drv, lv_indev_data_t* data) {
+    (void)indev_drv;  // Unused
+    data->point.x = mouse_x;
+    data->point.y = mouse_y;
+    data->state = mouse_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+}
+
+void sdl_keyboard_read(lv_indev_drv_t* indev_drv, lv_indev_data_t* data) {
+    (void)indev_drv;  // Unused
+    data->key = keyboard_pressed ? keyboard_key : 0;
+    data->state = keyboard_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+}
+
+} // extern "C" - 结束所有 LVGL 回调函数的 C 链接规范
 
 // Update mouse state (called by main loop)
 void sdl_update_mouse_state(SDL_Event* e) {
@@ -221,13 +191,6 @@ void sdl_update_mouse_state(SDL_Event* e) {
     }
 }
 
-void sdl_mouse_read(lv_indev_drv_t* indev_drv, lv_indev_data_t* data) {
-    (void)indev_drv;  // Unused
-    data->point.x = mouse_x;
-    data->point.y = mouse_y;
-    data->state = mouse_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
-}
-
 // Update keyboard state (called by main loop)
 void sdl_update_keyboard_state(SDL_Event* e) {
     if (e->type == SDL_KEYDOWN) {
@@ -238,11 +201,5 @@ void sdl_update_keyboard_state(SDL_Event* e) {
             keyboard_pressed = false;
         }
     }
-}
-
-void sdl_keyboard_read(lv_indev_drv_t* indev_drv, lv_indev_data_t* data) {
-    (void)indev_drv;  // Unused
-    data->key = keyboard_pressed ? keyboard_key : 0;
-    data->state = keyboard_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 }
 
