@@ -138,6 +138,50 @@
 
 ---
 
+## 📦 JSON 解析检查（必须全部通过）
+
+### JSON 使用规范
+
+- [ ] 是否在模块间传递 JSON 字符串？
+  - ❌ 发现即驳回，必须传递结构化对象（struct）
+  - ✅ 正确：`void updateSongList(const SongList& list);`
+  - ❌ 错误：`void updateSongList(const char* json_str);`
+
+- [ ] 是否在 UI 线程解析 JSON？
+  - ❌ 发现即驳回，必须在 Worker 线程解析
+  - ✅ 正确：在 `NetworkThread` 或 `WorkerThread` 中解析
+  - ❌ 错误：在 UI 回调中 `cJSON_Parse()`
+
+- [ ] 是否使用 `JsonHelper` 封装？
+  - ✅ 必须使用 `JsonHelper::parse()` 和 `JsonHelper::getString()` 等
+  - ❌ 禁止直接调用 `cJSON_Parse()` 等原始 API
+
+- [ ] `JsonHelper` 是否在正确的层调用？
+  - ✅ 允许：Network 层、Service 层（JSON解析）
+  - ❌ 禁止：UI 层、Player 层、LVGL callback、音频线程
+  - ❌ 发现即驳回，JsonHelper 是"网络解析工具"，不是"通用工具"
+
+- [ ] cJSON 对象生命周期是否跨函数？
+  - ❌ 发现即驳回，cJSON 生命周期必须 < 1 个函数
+  - ✅ 正确：解析→拷贝到 struct→立即 `cJSON_Delete()`
+  - ❌ 错误：返回 `cJSON*` 或存储为成员变量
+
+- [ ] 是否有 JSON 大小限制检查？
+  - ✅ 必须检查 `len <= MAX_JSON_SIZE`（64KB）
+  - ❌ 禁止无限制解析
+
+- [ ] 是否把 JSON 字符串传给 UI？
+  - ❌ 发现即驳回，必须传递 struct
+  - ✅ 正确：`UiEventQueue::push(SongListEvent{list});`
+  - ❌ 错误：`UiEventQueue::push(JsonStringEvent{json_str});`
+
+- [ ] JSON 是否只存在于网络层？
+  - ✅ JSON 字符串只在网络接收层存在
+  - ✅ 解析后立即转换为 struct，不再传递 JSON
+  - ❌ 禁止在 Service 层、UI 层、Player 层传递 JSON 字符串
+
+---
+
 ## ⚠️ 危险模式检查（立即驳回）
 
 | 危险模式 | 检查项 | 处理方式 |
@@ -148,6 +192,9 @@
 | **直接调用底层API** | 查找 `tplayer_*`、`curl_easy_*` | 改为使用 Service 接口 |
 | **页面退出删除控件** | 查找 `lv_obj_del()` 在页面退出时 | 改为 `hide()` |
 | **Service 中直接 new** | 查找 `new` 在 Service 中 | 改为静态实例或控件池 |
+| **模块间传递JSON字符串** | 查找函数参数为 `const char* json_str` | 改为传递 struct |
+| **UI线程解析JSON** | 查找 `cJSON_Parse()` 在UI回调中 | 改为在 Worker 线程解析 |
+| **错误层调用JsonHelper** | 查找 `JsonHelper::` 在UI/Player层 | 改为只在 Network/Service 层调用 |
 
 ---
 
@@ -159,7 +206,8 @@
 2. ✅ **并发安全**：所有检查项全部通过
 3. ✅ **代码组织**：所有检查项全部通过
 4. ✅ **架构符合性**：所有检查项全部通过
-5. ✅ **危险模式**：未发现任何危险模式
+5. ✅ **JSON解析**：所有检查项全部通过
+6. ✅ **危险模式**：未发现任何危险模式
 
 ---
 
@@ -168,6 +216,7 @@
 - **资源管理规范**：[资源管理规范v1.md](./资源管理规范v1.md)
 - **团队开发规范**：[团队开发规范v1.md](./团队开发规范v1.md)
 - **服务层API设计**：[服务层API设计文档.md](./服务层API设计文档.md)
+- **JSON解析编码规范**：[JSON解析编码规范.md](./guides/JSON解析编码规范.md) ⭐⭐⭐ **必读**
 - **Cursor开发脚手架**：[Cursor开发脚手架提示.md](./Cursor开发脚手架提示.md)
 
 ---

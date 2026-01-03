@@ -76,7 +76,7 @@
 | **LVGL** | 8.3.11 | UI框架 | FetchContent |
 | **TPlayer** | SDK版本 | 媒体播放器 | F133 SDK（全志官方） |
 
-### 必需库（7个）
+### 必需库（5个必需 + 2个推荐/可选）
 
 | # | 库名 | 版本 | 用途 | 集成方式 | 状态 |
 |---|------|------|------|----------|------|
@@ -85,10 +85,11 @@
 | 3 | **cJSON** | 最新 | JSON解析 | FetchContent | ✅ 必需 |
 | 4 | **std::queue + std::mutex** | C++17标准库 | 消息队列 | 标准库 | ✅ 必需 |
 | 5 | **libwebsockets** | 最新 | WebSocket长连接 | 系统包管理器或交叉编译 | ✅ 必需 |
-| 6 | **plog** | 最新 | 日志系统 | FetchContent | ✅ 推荐 |
-| 7 | **inih** | 最新 | 配置解析 | FetchContent | ✅ 可选 |
+| 6 | **syslog** | 系统自带 | 日志系统（F133平台） | 系统自带 | ✅ 必需（F133） |
+| 7 | **plog** | 最新 | 日志系统（Windows开发阶段） | FetchContent | ⚠️ 可选（Windows开发） |
+| 8 | **inih** | 最新 | 配置解析 | FetchContent | ✅ 可选 |
 
-> **注意**：MVP阶段统一使用 `std::queue + std::mutex`（标准库），不使用 `moodycamel::ConcurrentQueue`。
+> **技术决策**：项目统一使用 `std::queue + std::mutex + condition_variable`（标准库），**不使用 moodycamel::ConcurrentQueue**。详见 [消息队列选型技术决策.md](./guides/消息队列选型技术决策.md)
 
 ### 平台特定库
 
@@ -102,7 +103,7 @@
 |------|------|
 | **SDL2** | F133 使用 framebuffer + evdev，不需要 SDL2 |
 | **ALSA** | 所有播放由 TPlayer 处理，不需要系统音效和录音 |
-| **moodycamel::ConcurrentQueue** | MVP阶段使用标准库 `std::queue + std::mutex` 足够 |
+| **std::queue + std::mutex** | ✅ 已采用（标准库），不使用 moodycamel |
 
 ---
 

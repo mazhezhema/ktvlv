@@ -59,7 +59,8 @@
 | **播放器** | **TPlayer（全志SDK）** | 远程/本地 m3u8 + ts 播放 | 原生支持，性能稳，别造轮子 |
 | **网络通信** | **libcurl** | 下载 m3u8、拉 TS、HTTP | Tina 必备，下载最稳 |
 | **JSON** | **cJSON** | API/CONFIG 数据解析 | 轻量、无额外依赖 |
-| **日志** | **plog** | 滚动日志/模块化记录 | 简单稳，日志体系闭环核心 |
+| **日志** | **syslog** | 系统日志（F133平台） | 系统自带，F133/Tina Linux 标准日志方案 |
+| **日志（Windows开发）** | **plog** | 滚动日志/模块化记录（Windows开发阶段） | 简单稳，Windows开发阶段可选 |
 | **长连接** | **libwebsockets** | WebSocket 实时控制 | 轻量、支持WSS、单线程友好 |
 | **并发** | **std::thread + std::queue + mutex** | 线程与异步模型 | 简化心智，避免 pthread 裸奔 |
 | **文件系统** | **POSIX / `<stdio.h>`** | TS/M3U8缓存落盘 | 不引入库，越简单越少坑 |
@@ -69,7 +70,7 @@
 - ❌ ffmpeg / libav - 不做转码
 - ❌ Qt - 不需要跨平台GUI（F133使用framebuffer）
 - ❌ boost - 体积大，不适合嵌入式
-- ❌ moodycamel - MVP阶段用标准库够了
+- ❌ moodycamel - 技术决策：不使用无锁队列，使用标准库 `std::queue + std::mutex + condition_variable`
 - ❌ pthread 直接暴露 - 避免裸奔
 - ❌ nlohmann::json - 部署端太重
 

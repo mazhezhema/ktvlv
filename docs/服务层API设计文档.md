@@ -16,6 +16,9 @@
 - ✅ 所有接口都是线程安全的
 - ✅ 所有接口都是同步的（内部异步处理）
 - ✅ 所有接口都不暴露锁、线程、网络细节
+- ✅ **所有接口只传递结构化对象（struct），不传递 JSON 字符串**
+
+> **系统边界原则**：JSON 只存在于网络层，模块间只传 struct。详见 [JSON解析编码规范.md](./guides/JSON解析编码规范.md)
 
 ---
 
@@ -212,7 +215,7 @@ public:
     /**
      * POST请求（简单版本）
      * @param url 请求URL
-     * @param body POST body（JSON字符串）
+     * @param body POST body（JSON字符串，仅用于网络层发送，系统内部不传递）
      * @param headers 请求头（可选）
      * @return HttpResponse
      */
@@ -259,8 +262,12 @@ auto response = HttpService::instance().get("/api/search", {
 });
 
 if (response.success) {
-    auto json = Json::parse(response.body);
-    // 处理数据
+    // ✅ 正确：在网络层解析JSON，转换为struct
+    SongList list;
+    if (SongService::parseSongList(response.body, response.body.length(), &list)) {
+        // 使用struct，不传递JSON字符串
+        UiEventQueue::push(SongListEvent{list});
+    }
 } else {
     Logger::error("请求失败: " + response.errorMessage);
 }
@@ -281,8 +288,19 @@ auto response = HttpService::instance().post("/api/like", jsonBody, {
 ```cpp
 struct WsMessage {
     std::string type;      // 消息类型（如 "PLAY_SONG", "NEXT"）
-    std::string data;      // 消息数据（JSON字符串）
+    std::string data;      // 原始消息数据（JSON字符串，仅网络层使用，系统内部不传递）
     int timestamp;         // 时间戳
+};
+
+// ✅ 推荐：使用结构化消息类型（系统内部传递）
+struct PlaySongMessage {
+    std::string song_id;
+    std::string url;
+    int position = 0;
+};
+
+struct NextSongMessage {
+    // 空消息体，仅表示"下一首"命令
 };
 
 class WebSocketService {
@@ -311,11 +329,20 @@ public:
     // ========== 发送消息 ==========
     
     /**
-     * 发送消息
+     * 发送消息（使用结构化对象）
      * @param type 消息类型
-     * @param data 消息数据（JSON字符串）
+     * @param data 消息数据（结构化对象，内部转换为JSON）
      */
-    void send(const std::string& type, const std::string& data);
+    template<typename T>
+    void send(const std::string& type, const T& data);
+    
+    /**
+     * 发送消息（原始JSON，仅用于特殊场景）
+     * @param type 消息类型
+     * @param json_data 消息数据（JSON字符串，不推荐使用）
+     * @deprecated 推荐使用 send(type, struct) 版本
+     */
+    void sendRaw(const std::string& type, const std::string& json_data);
     
     /**
      * 发送消息（使用WsMessage对象）
@@ -360,15 +387,22 @@ WebSocketService::instance().connect("ws://example.com/ws/room123");
 // 监听消息
 WebSocketService::instance().onMessage([](const WsMessage& msg) {
     if (msg.type == "PLAY_SONG") {
-        auto data = Json::parse(msg.data);
-        PlayerService::instance().play(data["url"]);
+        // ✅ 正确：在网络层解析JSON，转换为struct
+        PlaySongMessage playMsg;
+        if (parsePlaySongMessage(msg.data, &playMsg)) {
+            // 使用struct，不传递JSON字符串
+            PlayerService::instance().play(playMsg.url);
+        }
     } else if (msg.type == "NEXT") {
         PlayerService::instance().next();
     }
 });
 
 // 发送消息
-WebSocketService::instance().send("LIKE_SONG", R"({"song_id": 12345})");
+// 发送消息（使用结构化对象）
+LikeSongMessage likeMsg;
+likeMsg.song_id = "12345";
+WebSocketService::instance().send("LIKE_SONG", likeMsg);  // ✅ 推荐
 
 // 监听连接状态
 WebSocketService::instance().onConnected([]() {
@@ -576,26 +610,27 @@ public:
     // ========== 发送事件 ==========
     
     /**
-     * 发送事件（通用版本）
+     * 发送事件（使用结构化对象，推荐）
      * @param eventName 事件名称
-     * @param data 事件数据（JSON字符串）
-     */
-    void post(const std::string& eventName, const std::string& data);
-    
-    /**
-     * 发送事件（模板版本，自动序列化）
-     * @param eventName 事件名称
-     * @param data 事件数据（支持任意可序列化类型）
+     * @param data 事件数据（结构化对象，不传递JSON字符串）
      */
     template<typename T>
     void post(const std::string& eventName, const T& data);
+    
+    /**
+     * 发送事件（原始JSON，仅用于特殊场景）
+     * @param eventName 事件名称
+     * @param json_data 事件数据（JSON字符串，不推荐使用）
+     * @deprecated 推荐使用 post(eventName, struct) 版本
+     */
+    void postRaw(const std::string& eventName, const std::string& json_data);
     
     // ========== 订阅事件 ==========
     
     /**
      * 订阅事件
      * @param eventName 事件名称
-     * @param callback 回调函数（参数：JSON字符串）
+     * @param callback 回调函数（参数：结构化对象，不传递JSON字符串）
      */
     void subscribe(const std::string& eventName, 
                    std::function<void(const std::string&)> callback);

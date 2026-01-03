@@ -6,8 +6,8 @@
 > **相关文档**：详见 [F133第一期需求文档.md](./F133第一期需求文档.md) 或 [MVP版本需求整理（最终版）.md](./MVP版本需求整理（最终版）.md)
 
 > ⚠️ **重要提示**：本文档中的库清单信息已过时，特别是 `moodycamel::ConcurrentQueue` 相关内容。  
-> **当前MVP阶段统一使用**：`std::queue + std::mutex`（标准库）  
-> **请以最新文档为准**：[F133第一期需求文档.md](./F133第一期需求文档.md)
+> **技术决策**：项目统一使用 `std::queue + std::mutex + condition_variable`（标准库），**不使用 moodycamel**。  
+> **请以最新文档为准**：[F133第一期需求文档.md](./F133第一期需求文档.md) 和 [消息队列选型技术决策.md](./guides/消息队列选型技术决策.md)
 
 ## 📋 功能范围
 
@@ -85,7 +85,8 @@
 | **libcurl** | HTTP客户端 | ✅ 必需 |
 | **cJSON** | JSON解析 | ✅ 必需 |
 | **std::queue + std::mutex** | 消息队列（标准库） | ✅ 必需 |
-| **plog** | 日志系统 | ✅ 推荐 |
+| **syslog** | 日志系统（F133平台） | ✅ 必需（F133） |
+| **plog** | 日志系统（Windows开发阶段） | ⚠️ 可选（Windows开发） |
 | **inih** | 配置解析 | ✅ 可选 |
 
 ### 不需要的库（MVP版本）
@@ -94,7 +95,7 @@
 |------|------|------|
 | **ALSA** | 录音功能 | ❌ 不需要（保持stub） |
 | **SDL2** | 图形窗口（F133） | ❌ 不需要（使用framebuffer） |
-| **moodycamel::ConcurrentQueue** | 消息队列 | ❌ 不需要（MVP阶段使用标准库 `std::queue + std::mutex`） |
+| **std::queue + std::mutex** | 消息队列 | ✅ 已采用（标准库），不使用 moodycamel |
 
 ---
 
