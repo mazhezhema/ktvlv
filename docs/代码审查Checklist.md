@@ -145,6 +145,40 @@
   - 类名：PascalCase（如 `SearchController`）
   - 文件名：与类名一致
 
+### 函数命名规范（架构约束）
+
+- [ ] Presenter 的 UI 入口是否使用 `onUiXxx` 命名？
+  - ✅ 正确：`onUiPlayClicked()`, `onUiSearchSubmitted()`, `onUiSongSelected()`
+  - ❌ 错误：`play()`, `handlePlay()`, `onPlay()`, `onSearch()`
+
+- [ ] Presenter 的 Service 回调入口是否使用 `onSvcXxx` 命名？
+  - ✅ 正确：`onSvcPlayStarted()`, `onSvcPlayFinished()`, `onSvcSearchResult()`
+  - ❌ 错误：`onPlayFinished()`, `onSearchResult()`, `onStateChanged()`
+
+- [ ] Presenter 的系统入口是否使用 `onSysXxx` 命名？
+  - ✅ 正确：`onSysNetworkLost()`, `onSysLowMemory()`, `onSysAppResume()`
+  - ❌ 错误：`onNetworkLost()`, `onLowMemory()`
+
+- [ ] Presenter 的内部函数是否使用 `handleXxx` 命名？
+  - ✅ 正确：`handlePlayRequest()`, `handlePlayCompleted()`, `handleNetworkError()`
+  - ❌ 错误：`playRequest()`, `processPlay()`, `doPlay()`
+
+- [ ] View 的 UI 回调是否使用 `emitXxx` 命名？
+  - ✅ 正确：`emitPlayClicked()`, `emitSearchSubmitted()`, `emitSongSelected()`
+  - ❌ 错误：`onPlayClicked()`, `playClicked()`, `onSearch()`
+
+- [ ] View 的渲染函数是否使用 `renderXxx` 命名？
+  - ✅ 正确：`renderPlaying()`, `renderPaused()`, `renderSearchResult()`
+  - ❌ 错误：`updatePlaying()`, `showPlaying()`, `setPlaying()`
+
+- [ ] Service 的方法是否使用 `requestXxx` 或直接动词命名？
+  - ✅ 正确：`requestPlay()`, `requestSearch()`, `play()`, `pause()`（Service 层允许直接动词）
+  - ❌ 错误：`onPlay()`, `handlePlay()`, `doPlay()`
+
+- [ ] 是否混用了命名规范？
+  - ❌ 发现即驳回，必须统一使用命名规范
+  - 详见：[应用层命名规范（架构约束版）.md](./guides/应用层命名规范（架构约束版）.md)
+
 ### 依赖关系
 
 - [ ] `features/` 是否依赖 `services/`？
