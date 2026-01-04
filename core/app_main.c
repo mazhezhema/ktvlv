@@ -16,12 +16,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
-
-#ifdef KTV_PLATFORM_WINDOWS_SDL
-#include <SDL.h>
-#elif defined(KTV_PLATFORM_F133) || defined(KTV_PLATFORM_F133_LINUX)
 #include "platform/f133_linux/input_evdev.h"
-#endif
 
 // LVGL 显示缓冲区（partial refresh，约 1/7 屏幕高度）
 static lv_disp_draw_buf_t draw_buf;
@@ -110,30 +105,6 @@ static bool init_audio_system(void) {
 static void app_main_loop(void) {
     fprintf(stderr, "[APP] Entering main loop...\n");
     
-#ifdef KTV_PLATFORM_WINDOWS_SDL
-    // SDL 主循环
-    SDL_Event e;
-    bool quit = false;
-    
-    while (!quit) {
-        // 处理 SDL 事件
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) {
-                quit = true;
-                break;
-            }
-            // 将事件传递给输入驱动处理
-            INPUT.process_event(&e);
-        }
-        
-        // LVGL 定时器处理
-        lv_timer_handler();
-        
-        // 短暂休眠，避免 CPU 占用过高
-        SDL_Delay(5);
-    }
-    
-#elif defined(KTV_PLATFORM_F133) || defined(KTV_PLATFORM_F133_LINUX)
     // F133 Linux 主循环
     while (1) {
         // 读取 evdev 事件
@@ -145,9 +116,6 @@ static void app_main_loop(void) {
         // 短暂休眠
         usleep(5000);  // 5ms
     }
-#else
-    #error "Unknown platform"
-#endif
 }
 
 /**
