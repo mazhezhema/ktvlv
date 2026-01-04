@@ -344,6 +344,81 @@ int upload_logs(log_package_t* package) {
 
 ## 四、应用升级的回滚策略
 
+### 升级失败态：用户可感知策略
+
+> **升级失败时，系统必须保证：**
+>
+> * 可继续点歌
+> * 不进入循环升级
+> * UI 给出明确状态
+
+**这是给 PM / 测试 / 运维看的，不是技术实现细节。**
+
+### 升级失败处理流程
+
+1. **检测升级失败**
+   - 升级包下载失败
+   - 升级包校验失败
+   - 升级后启动失败
+
+2. **回滚到上一版本**
+   - 自动切换到备份目录
+   - 恢复上一版本配置
+   - 记录升级失败日志
+
+3. **用户可感知状态**
+   - UI 显示升级失败提示
+   - 允许用户继续使用当前版本
+   - 不自动重试升级（避免循环）
+
+4. **继续点歌功能**
+   - 升级失败不影响点歌功能
+   - 播放器正常工作
+   - 网络功能正常工作
+
+### 实现示例
+
+```cpp
+class UpgradeService {
+public:
+    void handleUpgradeFailure(UpgradeError error) {
+        syslog(LOG_ERR, "[ktv][upgrade] Upgrade failed: %d", static_cast<int>(error));
+
+        // 回滚到上一版本
+        rollbackToPreviousVersion();
+
+        // 显示用户可感知的状态
+        showUpgradeFailureUI(error);
+
+        // 禁止自动重试（避免循环升级）
+        disableAutoUpgrade();
+
+        // 记录升级失败日志
+        logUpgradeFailure(error);
+    }
+
+    void showUpgradeFailureUI(UpgradeError error) {
+        // 通过 Event 通知 UI 显示升级失败提示
+        EventBus::getInstance().publish(Event{
+            EventType::UPGRADE_FAILURE,
+            getErrorMessage(error)
+        });
+    }
+
+    void rollbackToPreviousVersion() {
+        // 切换到备份目录
+        system("ln -sfn /opt/app/backup /opt/app/current");
+
+        // 恢复上一版本配置
+        restorePreviousConfig();
+    }
+};
+```
+
+---
+
+## 四、应用升级的回滚策略（技术实现）
+
 ### 4.1 问题描述
 
 **风险**：
