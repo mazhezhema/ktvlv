@@ -59,7 +59,7 @@ typedef struct {
  * 
  * 在平台特定实现中定义并初始化
  * 例如：
- *   - platform/windows_sdl/display_sdl.c: display_iface_t DISPLAY = {...}
+ *   - platform/f133_linux/display_fbdev.c: display_iface_t DISPLAY = {...}
  *   - platform/f133_linux/display_fbdev.c: display_iface_t DISPLAY = {...}
  */
 extern display_iface_t DISPLAY;

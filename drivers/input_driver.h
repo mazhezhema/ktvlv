@@ -54,7 +54,7 @@ typedef struct {
      * @brief 处理平台特定输入事件（可选）
      * 
      * 用于在主循环中处理平台事件
-     * 例如：SDL_Event, evdev 事件等
+     * 例如：evdev 事件等
      * 
      * @param event_data 平台特定事件数据（void* 通用指针）
      * @return true 事件已处理, false 未处理
