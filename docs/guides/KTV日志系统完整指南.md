@@ -1027,3 +1027,4 @@ KTV App → syslog() → syslogd → logread → LogUploadService → HTTP
 **最后更新**: 2025-12-30  
 **状态**: ✅ 核心文档（合并版，包含日志子系统设计、规范、服务设计、实现示例）
 
+

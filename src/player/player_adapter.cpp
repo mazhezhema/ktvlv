@@ -228,3 +228,4 @@ void PlayerAdapter::exit()                            { impl_->exit(); }
 void PlayerAdapter::setListener(PlayerListener l)     { impl_->setListener(std::move(l)); }
 
 
+
