@@ -27,7 +27,7 @@
 |------|---------|------|---------|
 | **业务层（你们团队）** | 歌单、榜单、搜索、逻辑 | C++接口 == Java习惯（无锁） | ⭐⭐⭐ 低（2周上手） |
 | **服务层（框架）** | 我来给架构/模板 | 事件驱动 + 上下文封装 | ❌ 不接触 |
-| **系统层（第三方）** | 开源库 | LVGL / WebSockets / libcurl / plog / cjson / TPlayer | ❌ 不接触 |
+| **系统层（第三方）** | 开源库 | LVGL / WebSockets / libcurl / syslog / cjson / TPlayer | ❌ 不接触 |
 
 ### 核心原则
 
@@ -60,7 +60,6 @@
 | **网络通信** | **libcurl** | 下载 m3u8、拉 TS、HTTP | Tina 必备，下载最稳 |
 | **JSON** | **cJSON** | API/CONFIG 数据解析 | 轻量、无额外依赖 |
 | **日志** | **syslog** | 系统日志（F133平台） | 系统自带，F133/Tina Linux 标准日志方案 |
-| **日志（Windows开发）** | **plog** | 滚动日志/模块化记录（Windows开发阶段） | 简单稳，Windows开发阶段可选 |
 | **长连接** | **libwebsockets** | WebSocket 实时控制 | 轻量、支持WSS、单线程友好 |
 | **并发** | **std::thread + std::queue + mutex** | 线程与异步模型 | 简化心智，避免 pthread 裸奔 |
 | **文件系统** | **POSIX / `<stdio.h>`** | TS/M3U8缓存落盘 | 不引入库，越简单越少坑 |
@@ -106,7 +105,7 @@
                         │
 ┌───────────────────────▼─────────────────────────────────┐
 │                底层库（第三方）                            │
-│  LVGL、TPlayer、libcurl、libwebsockets、plog、cJSON      │
+│  LVGL、TPlayer、libcurl、libwebsockets、syslog、cJSON      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -200,7 +199,7 @@
 **必须 file://**  
 不然 TPlayer 当 URL 走网络栈 → 坑。
 
-### 🪵 日志策略（plog）
+### 🪵 日志策略（syslog）
 
 - ✅ 一级目录：模块前缀 `[UI][Player][Cache][SDK][M3U8]`
 - ✅ 用户态错误：LOGW / LOGE
@@ -226,7 +225,7 @@
 ## 🔥 可复述版本（对财务/老板/供应链说）
 
 > **KT VLV 的架构是"轻量级嵌入式播放器"方案，  
-> 核心依赖 LVGL + TPlayer + libcurl + plog，  
+> 核心依赖 LVGL + TPlayer + libcurl + syslog，  
 > 不做重型转码，不碰 ffmpeg，不走复杂并发，  
 > 通过后台缓存机制实现弱网友好与离线可用。  
 > 方案具有低成本交付能力，可持续扩展。**

@@ -86,7 +86,6 @@
 | 4 | **std::queue + std::mutex** | C++17标准库 | 消息队列 | 标准库 | ✅ 必需 |
 | 5 | **libwebsockets** | 最新 | WebSocket长连接 | 系统包管理器或交叉编译 | ✅ 必需 |
 | 6 | **syslog** | 系统自带 | 日志系统（F133平台） | 系统自带 | ✅ 必需（F133） |
-| 7 | **plog** | 最新 | 日志系统（Windows开发阶段） | FetchContent | ⚠️ 可选（Windows开发） |
 | 8 | **inih** | 最新 | 配置解析 | FetchContent | ✅ 可选 |
 
 > **技术决策**：项目统一使用 `std::queue + std::mutex + condition_variable`（标准库），**不使用 moodycamel::ConcurrentQueue**。详见 [消息队列选型技术决策.md](./guides/消息队列选型技术决策.md)

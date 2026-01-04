@@ -1,7 +1,7 @@
 #include "song_service.h"
 #include "http_service.h"
 #include "cJSON.h"
-#include <plog/Log.h>
+#include <syslog.h>
 
 namespace ktv::services {
 
@@ -40,7 +40,7 @@ std::vector<SongItem> SongService::listSongs(int page, int size) {
                   token_.c_str(), page, size, net_cfg_.company.c_str(), net_cfg_.app_name.c_str(),
                   net_cfg_.platform.c_str(), net_cfg_.vn.c_str());
     if (!HttpService::getInstance().get(url, resp)) {
-        PLOGW << "listSongs HTTP failed";
+        syslog(LOG_WARNING, "[ktv][service][error] component=song_service action=list_songs reason=http_failed");
         return result;
     }
     parse_song_array(resp.body.data(), result);
@@ -56,7 +56,7 @@ std::vector<SongItem> SongService::search(const std::string& keyword, int page, 
                   token_.c_str(), page, size, keyword.c_str(), net_cfg_.company.c_str(),
                   net_cfg_.app_name.c_str());
     if (!HttpService::getInstance().get(url, resp)) {
-        PLOGW << "search HTTP failed";
+        syslog(LOG_WARNING, "[ktv][service][error] component=song_service action=search reason=http_failed");
         return result;
     }
     parse_song_array(resp.body.data(), result);
@@ -72,7 +72,7 @@ bool SongService::addToQueue(const std::string& song_id) {
     char body[256]{0};
     std::snprintf(body, sizeof(body), "{\"song_id\":\"%s\"}", song_id.c_str());
     if (!HttpService::getInstance().post(url, body, resp)) {
-        PLOGW << "addToQueue HTTP failed";
+        syslog(LOG_WARNING, "[ktv][service][error] component=song_service action=add_to_queue reason=http_failed");
         return false;
     }
     return true;

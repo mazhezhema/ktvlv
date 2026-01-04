@@ -1,5 +1,5 @@
 #include "page_lifecycle.h"
-#include <plog/Log.h>
+#include <syslog.h>
 
 namespace ktv::ui {
 
@@ -19,7 +19,7 @@ void PageLifecycle::show() {
         if (onCreate_) {
             page_ = onCreate_(parent_container_);
             if (!page_) {
-                PLOGW << "Page creation failed";
+                syslog(LOG_WARNING, "[ktv][ui][error] component=page_lifecycle reason=creation_failed");
                 return;
             }
             created_ = true;

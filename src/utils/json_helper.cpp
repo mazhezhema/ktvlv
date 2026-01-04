@@ -4,8 +4,6 @@
 #include <string.h>
 #include <stdio.h>
 
-// 如果使用 plog，取消注释
-// #include "plog/Log.h"
 
 cJSON* JsonHelper::parse(const char* str, size_t len) {
     if (!str || len == 0) {

@@ -86,7 +86,6 @@
 | **cJSON** | JSON解析 | ✅ 必需 |
 | **std::queue + std::mutex** | 消息队列（标准库） | ✅ 必需 |
 | **syslog** | 日志系统（F133平台） | ✅ 必需（F133） |
-| **plog** | 日志系统（Windows开发阶段） | ⚠️ 可选（Windows开发） |
 | **inih** | 配置解析 | ✅ 可选 |
 
 ### 不需要的库（MVP版本）

@@ -1,6 +1,6 @@
 # KTVLV - F133/Tina Linux KTV 点歌系统
 
-> **轻量级嵌入式播放器方案 | LVGL + TPlayer + libcurl + plog**
+> **轻量级嵌入式播放器方案 | LVGL + TPlayer + libcurl + syslog**
 
 [![Platform](https://img.shields.io/badge/Platform-F133%20%2F%20Tina%20Linux-orange)](https://www.allwinnertech.com/)
 [![UI](https://img.shields.io/badge/UI-LVGL%208.3.11-blue)](https://lvgl.io/)
@@ -10,7 +10,7 @@
 
 ## 🎯 一句话介绍
 
-**UI 单线程 + 播放器串行 + 事件回流 + 后台缓存 + plog 全链路记录**
+**UI 单线程 + 播放器串行 + 事件回流 + 后台缓存 + syslog 日志记录**
 
 KTV 点歌系统，基于全志 F133 平台，使用 LVGL 作为 UI 框架，TPlayer 作为播放器，支持 m3u8 流媒体播放、双音轨切换（原唱/伴奏）、历史记录、VIP 会员、微信扫码等功能。
 
@@ -18,12 +18,12 @@ KTV 点歌系统，基于全志 F133 平台，使用 LVGL 作为 UI 框架，TPl
 
 ## ✨ 核心特性
 
-- ✅ **轻量级架构**：LVGL + TPlayer + libcurl + plog，不引重库
+- ✅ **轻量级架构**：LVGL + TPlayer + libcurl + syslog，不引重库
 - ✅ **双音轨支持**：原唱/伴奏无缝切换（TPlayerSwitchAudio）
 - ✅ **智能缓存**：本地优先，弱网友好，离线可用
 - ✅ **并发简单**：4线程 + 2队列，业务层无锁
 - ✅ **事件驱动**：Command Down / Event Up，职责清晰
-- ✅ **全链路日志**：plog 模块化记录，便于调试和维护
+- ✅ **日志系统**：syslog 系统日志，便于调试和维护
 
 ---
 
@@ -150,7 +150,7 @@ make install
 **第三方库**（FetchContent 自动获取）：
 - LVGL 8.3.11 - UI 框架
 - cJSON - JSON 解析
-- plog - 日志系统
+- syslog - 日志系统
 - inih - 配置解析
 - libwebsockets - WebSocket 客户端
 

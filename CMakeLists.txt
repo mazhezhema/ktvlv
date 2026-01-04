@@ -48,26 +48,6 @@ endif()
 find_package(SDL2 REQUIRED)
 
 # ------------------------------------------------------------
-# plog (header-only) for logging
-# ------------------------------------------------------------
-FetchContent_Declare(
-  plog
-  GIT_REPOSITORY https://github.com/SergiusTheBest/plog.git
-  GIT_TAG        1.1.9
-)
-FetchContent_MakeAvailable(plog)
-
-# ------------------------------------------------------------
-# moodycamel ConcurrentQueue (header-only) for lock-free queues
-# ------------------------------------------------------------
-FetchContent_Declare(
-  moodycamel
-  GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git
-  GIT_TAG        master
-)
-FetchContent_MakeAvailable(moodycamel)
-
-# ------------------------------------------------------------
 # inih (INI parser) for配置读取
 # ------------------------------------------------------------
 FetchContent_Declare(
@@ -121,7 +101,6 @@ endif()
 file(GLOB UI_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/*.cpp")
 file(GLOB SERVICE_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/services/*.cpp")
 file(GLOB EVENT_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/events/*.cpp")
-file(GLOB LOGGING_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/logging/*.cpp")
 file(GLOB CONFIG_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/config/*.cpp")
 
 if(KTV_USE_NEW_PLATFORM_ARCH)
@@ -131,7 +110,6 @@ if(KTV_USE_NEW_PLATFORM_ARCH)
       ${UI_SRC}
       ${SERVICE_SRC}
       ${EVENT_SRC}
-      ${LOGGING_SRC}
       ${CONFIG_SRC}
       ${PLATFORM_DISPLAY_SRC}
       ${PLATFORM_INPUT_SRC}
@@ -146,7 +124,6 @@ else()
       ${UI_SRC}
       ${SERVICE_SRC}
       ${EVENT_SRC}
-      ${LOGGING_SRC}
       ${CONFIG_SRC}
       ${SDL_SRC}
     )
@@ -156,8 +133,6 @@ target_include_directories(ktvlv PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${lvgl_SOURCE_DIR}
-  ${plog_SOURCE_DIR}/include
-  ${moodycamel_SOURCE_DIR}
   ${inih_SOURCE_DIR}
   ${cjson_SOURCE_DIR}
 )

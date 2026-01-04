@@ -1,5 +1,5 @@
 #include "licence_service.h"
-#include <plog/Log.h>
+#include <syslog.h>
 
 namespace ktv::services {
 
@@ -13,7 +13,7 @@ bool LicenceService::verify(const std::string& licence_code) {
     // 占位：实际应调用服务器验证
     info_.licence_code = licence_code;
     info_.status = LicenceStatus::Trial;
-    PLOGI << "Licence verify mock, code=" << licence_code;
+    syslog(LOG_INFO, "[ktv][licence][verify] code=%s status=mock", licence_code.c_str());
     return true;
 }
 

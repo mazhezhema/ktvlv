@@ -5,7 +5,7 @@
 #include "../services/mock_data.h"
 #include "../services/song_service.h"
 #include "../events/event_bus.h"
-#include <plog/Log.h>
+#include <syslog.h>
 #include <vector>
 #include <string>
 
@@ -253,9 +253,9 @@ static void on_song_click(lv_event_t* e) {
     std::string song_id = title ? title : "";
     bool ok = ktv::services::SongService::getInstance().addToQueue(song_id);
     if (!ok) {
-        PLOGW << "点歌失败: " << song_id;
+        syslog(LOG_WARNING, "[ktv][ui][action] action=add_to_queue song_id=%s status=failed", song_id.c_str());
     } else {
-        PLOGI << "点歌成功: " << song_id;
+        syslog(LOG_INFO, "[ktv][ui][action] action=add_to_queue song_id=%s status=success", song_id.c_str());
         ktv::events::Event ev;
         ev.type = ktv::events::EventType::SongSelected;
         ev.payload = song_id;
@@ -375,10 +375,10 @@ void show_home_tab(lv_obj_t* content_area) {
     try {
         songs = ktv::services::SongService::getInstance().listSongs(1, 20);
     } catch (const std::exception& e) {
-        PLOGW << "获取歌曲列表失败，使用mock数据: " << e.what();
+        syslog(LOG_WARNING, "[ktv][ui][error] component=song_list exception=%s action=using_mock_data", e.what());
         songs.clear();
     } catch (...) {
-        PLOGW << "获取歌曲列表失败（未知错误），使用mock数据";
+        syslog(LOG_WARNING, "[ktv][ui][error] component=song_list exception=unknown action=using_mock_data");
         songs.clear();
     }
     
@@ -436,7 +436,7 @@ void show_history_tab(lv_obj_t* content_area) {
     try {
         songs = ktv::services::SongService::getInstance().listSongs(1, 20);
     } catch (...) {
-        PLOGW << "获取历史记录失败，使用mock数据";
+        syslog(LOG_WARNING, "[ktv][ui][error] component=history_list exception=unknown action=using_mock_data");
         songs.clear();
     }
     

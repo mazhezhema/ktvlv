@@ -15,7 +15,7 @@ extern "C" {
 #include "ui/page_manager.h"
 #include "ui/ui_scale.h"
 #include "sdl/sdl.h"
-#include "logging/logger.h"
+#include <syslog.h>
 #include "config/config.h"
 #include "services/http_service.h"
 #include "services/song_service.h"
@@ -36,19 +36,19 @@ static bool init_display() {
 
     // ⚠️ 防御性检查：分辨率必须有效
     if (width <= 0 || height <= 0) {
-        PLOGE << "Invalid display resolution: " << width << "x" << height;
+        syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=invalid_resolution width=%d height=%d", (int)width, (int)height);
         fprintf(stderr, "[INIT] ERROR: Invalid display resolution: %dx%d\n", (int)width, (int)height);
         return false;
     }
 
-    PLOGI << "Initializing SDL display...";
+    syslog(LOG_INFO, "[ktv][sys][init] component=sdl");
     fprintf(stderr, "[INIT] SDL display initialization (%dx%d)...\n", (int)width, (int)height);
     if (!sdl_init()) {
-        PLOGE << "SDL initialization failed!";
+        syslog(LOG_ERR, "[ktv][sys][init_fail] component=sdl");
         return false;
     }
 
-    PLOGI << "Initializing LVGL display buffer (full screen, single buffer)...";
+    syslog(LOG_INFO, "[ktv][sys][init] component=lvgl_buffer mode=full_screen");
     fprintf(stderr, "[INIT] LVGL display buffer: %dx%d (full screen buffer)\n",
             (int)width, (int)height);
     // ✅ 第一步修复：使用全屏单buffer，第二个buffer设为nullptr
@@ -87,17 +87,16 @@ static bool init_display() {
     // ✅ Step1诊断：确认 flush_cb 被注册
     if (disp_drv.flush_cb == NULL) {
         fprintf(stderr, "❌ [DIAG] flush_cb NOT SET - CRITICAL ERROR!\n");
-        PLOGE << "flush_cb is NULL!";
+        syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=flush_cb_null");
         return false;
     } else {
         fprintf(stderr, "✅ [DIAG] flush_cb is SET: %p\n", (void*)disp_drv.flush_cb);
-        PLOGI << "flush_cb registered successfully";
+        syslog(LOG_INFO, "[ktv][sys][init] component=display_flush_cb status=registered");
     }
 
     // ⚠️ 防御性检查：确保分辨率已正确设置
     if (disp_drv.hor_res <= 0 || disp_drv.ver_res <= 0) {
-        PLOGE << "Display driver resolution is invalid before registration: " 
-              << disp_drv.hor_res << "x" << disp_drv.ver_res;
+        syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=invalid_resolution width=%d height=%d", (int)disp_drv.hor_res, (int)disp_drv.ver_res);
         fprintf(stderr, "[INIT] ERROR: Display driver resolution is invalid: %dx%d\n",
                 (int)disp_drv.hor_res, (int)disp_drv.ver_res);
         return false;
@@ -111,7 +110,7 @@ static bool init_display() {
 
     lv_disp_t* disp = lv_disp_drv_register(&disp_drv);
     if (!disp) {
-        PLOGE << "LVGL display driver registration failed!";
+        syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=registration_failed");
         fprintf(stderr, "❌ [INIT] Failed to register display driver\n");
         return false;
     }
@@ -138,7 +137,7 @@ static bool init_display() {
     // 这是解决 flush_cb 不被调用的根本原因
     lv_disp_set_default(disp);
     fprintf(stderr, "🎯 [INIT] LVGL default display set to %p\n", (void*)disp);
-    PLOGI << "Default display set: " << (void*)disp;
+    syslog(LOG_INFO, "[ktv][sys][init] component=display status=default_set");
     
     // ✅ 决定性验证：检查当前分辨率是否被正确激活
     lv_coord_t current_hor = lv_disp_get_hor_res(NULL);
@@ -150,7 +149,7 @@ static bool init_display() {
         fprintf(stderr, "❌ [DIAG] CRITICAL: Display resolution mismatch! Driver not activated!\n");
         fprintf(stderr, "   Expected: %dx%d, Got: %dx%d\n", 
                 (int)width, (int)height, (int)current_hor, (int)current_ver);
-        PLOGE << "Display resolution mismatch - driver not activated";
+        syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=resolution_mismatch");
         return false;
     } else {
         fprintf(stderr, "✅ [DIAG] Display resolution verified - driver activated\n");
@@ -161,14 +160,14 @@ static bool init_display() {
     lv_coord_t disp_h = lv_disp_get_ver_res(disp);
     
     if (disp_w <= 0 || disp_h <= 0) {
-        PLOGE << "CRITICAL: Display driver resolution is 0x0 after registration!";
+        syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=resolution_zero_after_registration");
         fprintf(stderr, "[INIT] CRITICAL ERROR: Display driver resolution is 0x0 after registration!\n");
         fprintf(stderr, "[INIT] This will cause memory access violations in lv_timer_handler()\n");
         return false;
     }
     
     fprintf(stderr, "[INIT] Display driver registered successfully: %dx%d\n", (int)disp_w, (int)disp_h);
-    PLOGI << "Display driver registered successfully: " << disp_w << "x" << disp_h;
+    syslog(LOG_INFO, "[ktv][sys][init] component=display status=registered width=%d height=%d", (int)disp_w, (int)disp_h);
     return true;
 }
 
@@ -197,7 +196,7 @@ static uint32_t safe_lv_timer_handler() {
     uint32_t delay = safe_lv_timer_handler_impl();
     // 在C++代码中记录日志（仅在真正发生异常时）
     if (g_seh_exception_occurred) {
-        PLOGE << "Windows SEH exception (0x" << std::hex << g_seh_exception_code << std::dec << ") in lv_timer_handler()";
+        syslog(LOG_ERR, "[ktv][sys][error] component=lv_timer_handler exception=seh code=0x%x", g_seh_exception_code);
     }
     return delay;
 }
@@ -234,25 +233,24 @@ int SDL_main(int argc, char* argv[]) {
     SetConsoleCP(65001);        // UTF-8
 #endif
     
-    // Initialize logger first to ensure subsequent logs can output normally
+    // Initialize syslog
     fprintf(stderr, "=== KTV LVGL Program Start ===\n");
-    fprintf(stderr, "Initializing logger...\n");
-    ktv::logging::init();  // Console logging
+    openlog("ktv", LOG_PID | LOG_NDELAY, LOG_USER);
     
     try {
-        PLOGI << "Initializing LVGL...";
+        syslog(LOG_INFO, "[ktv][sys][init] component=lvgl");
         lv_init();
         
-        PLOGI << "Loading config file...";
+        syslog(LOG_INFO, "[ktv][sys][init] component=config");
         ktv::config::NetworkConfig net_cfg;
         bool cfg_ok = ktv::config::loadFromFile("config.ini", net_cfg);
         if (!cfg_ok) {
-            PLOGW << "config.ini not found or parse fail, using defaults.";
+            syslog(LOG_WARNING, "[ktv][sys][config] file=config.ini status=not_found action=using_defaults");
         }
         
-        PLOGI << "Initializing display system...";
+        syslog(LOG_INFO, "[ktv][sys][init] component=display");
         if (!init_display()) {
-            PLOGE << "Display initialization failed!";
+            syslog(LOG_ERR, "[ktv][sys][init_fail] component=display");
             fprintf(stderr, "Press any key to exit...\n");
 #ifdef _WIN32
             _getch();
@@ -262,7 +260,7 @@ int SDL_main(int argc, char* argv[]) {
             return -1;
         }
         
-        PLOGI << "Initializing input system...";
+        syslog(LOG_INFO, "[ktv][sys][init] component=input");
         init_input();
     
         // ✅ 关键修复：UIScale 必须从实际显示驱动分辨率初始化
@@ -273,7 +271,7 @@ int SDL_main(int argc, char* argv[]) {
         lv_coord_t actual_height = LV_VER_RES_MAX;
         
         if (!default_disp) {
-            PLOGE << "CRITICAL: No display driver found! This will cause crashes.";
+            syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=no_driver");
             fprintf(stderr, "[INIT] CRITICAL ERROR: No display driver found!\n");
             fprintf(stderr, "[INIT] This will cause memory access violations in lv_timer_handler()\n");
             fprintf(stderr, "Press any key to exit...\n");
@@ -291,7 +289,7 @@ int SDL_main(int argc, char* argv[]) {
         // ⚠️ 关键修复：如果分辨率是 0x0，立即报错并退出
         // 继续运行会导致 lv_timer_handler() 访问非法内存
         if (disp_w <= 0 || disp_h <= 0) {
-            PLOGE << "CRITICAL: Display driver resolution is 0x0! This will cause crashes.";
+            syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=resolution_zero width=%d height=%d", (int)disp_w, (int)disp_h);
             fprintf(stderr, "[INIT] CRITICAL ERROR: Display driver resolution is 0x0!\n");
             fprintf(stderr, "[INIT] Expected: %dx%d, Got: %dx%d\n",
                     (int)LV_HOR_RES_MAX, (int)LV_VER_RES_MAX, (int)disp_w, (int)disp_h);
@@ -313,36 +311,36 @@ int SDL_main(int argc, char* argv[]) {
         actual_height = disp_h;
         fprintf(stderr, "[INIT] Using display driver resolution: %dx%d\n", 
                 (int)actual_width, (int)actual_height);
-        PLOGI << "Display resolution confirmed: " << actual_width << "x" << actual_height;
+        syslog(LOG_INFO, "[ktv][sys][init] component=display_resolution width=%d height=%d", (int)actual_width, (int)actual_height);
     
-        PLOGI << "Initializing UI system (scale, focus, theme)...";
+        syslog(LOG_INFO, "[ktv][sys][init] component=ui");
         // ✅ 使用实际分辨率初始化 UIScale，设计稿标准为 1920x1080
         ktv::ui::init_ui_system(actual_width, actual_height);
 
-        PLOGI << "Initializing services...";
+        syslog(LOG_INFO, "[ktv][sys][init] component=services");
         // Initialize services (placeholder/optional parameters)
         ktv::services::HttpService::getInstance().initialize(net_cfg.base_url, net_cfg.timeout);
         ktv::services::LicenceService::getInstance().initialize();
         ktv::services::HistoryService::getInstance().setCapacity(50);
         ktv::services::M3u8DownloadService::getInstance().initialize();
 
-        PLOGI << "Creating main screen...";
+        syslog(LOG_INFO, "[ktv][sys][init] component=main_screen");
         fprintf(stderr, "Creating main screen...\n");
         lv_obj_t* scr = nullptr;
         try {
             scr = ktv::ui::create_main_screen();
         } catch (const std::exception& e) {
             fprintf(stderr, "Exception while creating main screen: %s\n", e.what());
-            PLOGE << "Exception creating main screen: " << e.what();
+            syslog(LOG_ERR, "[ktv][sys][init_fail] component=main_screen exception=%s", e.what());
             throw;
         } catch (...) {
             fprintf(stderr, "Unknown exception while creating main screen\n");
-            PLOGE << "Unknown exception creating main screen";
+            syslog(LOG_ERR, "[ktv][sys][init_fail] component=main_screen exception=unknown");
             throw;
         }
 
         if (!scr || !lv_obj_is_valid(scr)) {
-            PLOGE << "Failed to create main screen!";
+            syslog(LOG_ERR, "[ktv][sys][init_fail] component=main_screen reason=create_failed");
             fprintf(stderr, "create_main_screen returned NULL or invalid\n");
             fprintf(stderr, "Press any key to exit...\n");
 #ifdef _WIN32
@@ -392,8 +390,7 @@ int SDL_main(int argc, char* argv[]) {
             fprintf(stderr, "[INIT] Test object created (red rectangle) to force refresh\n");
         }
 
-        PLOGI << "Initialization complete, entering main loop";
-        PLOGI << "Tip: Close window or press ESC to exit";
+        syslog(LOG_INFO, "[ktv][sys][ready] status=initialization_complete");
         fprintf(stderr, "Program ready. Close window or press ESC to exit.\n");
 
         // 主循环：按照最佳实践，刷新权完全交给LVGL
@@ -481,10 +478,10 @@ int SDL_main(int argc, char* argv[]) {
                 }
             } catch (const std::exception& e) {
                 fprintf(stderr, "ERROR in lv_timer_handler: %s\n", e.what());
-                PLOGE << "lv_timer_handler exception: " << e.what();
+                syslog(LOG_ERR, "[ktv][sys][error] component=lv_timer_handler exception=%s", e.what());
             } catch (...) {
                 fprintf(stderr, "ERROR in lv_timer_handler: unknown exception\n");
-                PLOGE << "lv_timer_handler unknown exception";
+                syslog(LOG_ERR, "[ktv][sys][error] component=lv_timer_handler exception=unknown");
             }
 
             // ✅ 关键修复：在主线程中分发 EventBus 事件，确保所有 UI 更新都在主线程执行
@@ -494,19 +491,19 @@ int SDL_main(int argc, char* argv[]) {
                 ktv::events::EventBus::getInstance().dispatchOnUiThread();
             } catch (const std::exception& e) {
                 fprintf(stderr, "ERROR in EventBus dispatch: %s\n", e.what());
-                PLOGE << "EventBus dispatch exception: " << e.what();
+                syslog(LOG_ERR, "[ktv][sys][error] component=eventbus exception=%s", e.what());
             } catch (...) {
                 fprintf(stderr, "ERROR in EventBus dispatch: unknown exception\n");
-                PLOGE << "EventBus dispatch unknown exception";
+                syslog(LOG_ERR, "[ktv][sys][error] component=eventbus exception=unknown");
             }
             
             while (SDL_PollEvent(&e)) {
                 try {
                     if (e.type == SDL_QUIT) {
-                        PLOGI << "Received quit event";
+                        syslog(LOG_INFO, "[ktv][sys][event] type=quit");
                         quit = true;
                     } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
-                        PLOGI << "Received ESC key, exiting";
+                        syslog(LOG_INFO, "[ktv][sys][event] type=key_escape");
                         quit = true;
                     } else {
                         // 更新输入设备状态（鼠标、键盘）
@@ -528,18 +525,18 @@ int SDL_main(int argc, char* argv[]) {
 
             loop_count++;
             if (loop_count % 1000 == 0) {
-                PLOGI << "Main loop running... (count: " << loop_count << ")";
+                syslog(LOG_INFO, "[ktv][sys][heartbeat] loop_count=%d", loop_count);
             }
         }
         
-        PLOGI << "Program exiting normally";
+        syslog(LOG_INFO, "[ktv][sys][exit] reason=normal");
         return 0;
     } catch (const std::exception& e) {
         fprintf(stderr, "\n=== Program Exception Exit ===\n");
         fprintf(stderr, "Exception type: std::exception\n");
         fprintf(stderr, "Exception message: %s\n", e.what());
         try {
-            PLOGE << "Caught exception: " << e.what();
+            syslog(LOG_ERR, "[ktv][sys][exit] reason=exception exception=%s", e.what());
         } catch (...) {
             // Logger system may also have problems, ignore
         }
@@ -554,7 +551,7 @@ int SDL_main(int argc, char* argv[]) {
         fprintf(stderr, "\n=== Program Exception Exit ===\n");
         fprintf(stderr, "Exception type: Unknown exception\n");
         try {
-            PLOGE << "Caught unknown exception";
+            syslog(LOG_ERR, "[ktv][sys][exit] reason=unknown_exception");
         } catch (...) {
             // Logger system may also have problems, ignore
         }

@@ -2,7 +2,7 @@
 #include "ui_scale.h"
 #include "../services/song_service.h"
 #include "../events/event_bus.h"
-#include <plog/Log.h>
+#include <syslog.h>
 
 namespace ktv::ui::components {
 
@@ -72,9 +72,9 @@ static void onSongClick(lv_event_t* e) {
     
     bool ok = ktv::services::SongService::getInstance().addToQueue(song_id);
     if (!ok) {
-        PLOGW << "点歌失败: " << song_id;
+        syslog(LOG_WARNING, "[ktv][ui][action] action=add_to_queue song_id=%s status=failed", song_id.c_str());
     } else {
-        PLOGI << "点歌成功: " << song_id;
+        syslog(LOG_INFO, "[ktv][ui][action] action=add_to_queue song_id=%s status=success", song_id.c_str());
         ktv::events::Event ev;
         ev.type = ktv::events::EventType::SongSelected;
         ev.payload = song_id;

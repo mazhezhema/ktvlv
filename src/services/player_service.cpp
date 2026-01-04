@@ -1,11 +1,11 @@
 #include "player_service.h"
-#include <plog/Log.h>
+#include <syslog.h>
 #include "../events/event_bus.h"
 
 namespace ktv::services {
 
 void PlayerService::play(const std::string& song_id, const std::string& m3u8_url) {
-    PLOGI << "Play (mock) song=" << song_id << " url=" << m3u8_url;
+    syslog(LOG_INFO, "[ktv][player][action] action=play song_id=%s url=%s status=mock", song_id.c_str(), m3u8_url.c_str());
     state_ = PlayerState::Playing;
     ktv::events::Event ev;
     ev.type = ktv::events::EventType::PlayerStateChanged;
@@ -16,21 +16,21 @@ void PlayerService::play(const std::string& song_id, const std::string& m3u8_url
 void PlayerService::pause() {
     if (state_ == PlayerState::Playing) {
         state_ = PlayerState::Paused;
-        PLOGI << "Pause";
+        syslog(LOG_INFO, "[ktv][player][action] action=pause");
     }
 }
 
 void PlayerService::resume() {
     if (state_ == PlayerState::Paused) {
         state_ = PlayerState::Playing;
-        PLOGI << "Resume";
+        syslog(LOG_INFO, "[ktv][player][action] action=resume");
     }
 }
 
 void PlayerService::stop() {
     if (state_ != PlayerState::Stopped) {
         state_ = PlayerState::Stopped;
-        PLOGI << "Stop";
+        syslog(LOG_INFO, "[ktv][player][action] action=stop");
     }
 }
 
