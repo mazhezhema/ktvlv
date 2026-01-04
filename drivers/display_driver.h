@@ -5,7 +5,7 @@
  * 设计原则：
  * - 所有平台实现必须遵循此接口
  * - UI层和服务层不感知具体平台实现
- * - 支持快速切换平台（Windows SDL <-> F133 Linux）
+ * - 支持 F133 Linux 平台
  */
 
 #ifndef KTVLV_DRIVERS_DISPLAY_DRIVER_H
