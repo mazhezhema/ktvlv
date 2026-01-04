@@ -267,3 +267,4 @@ void sdl_display_flush(lv_disp_drv_t* disp_drv, const lv_area_t* area, lv_color_
 2. **生成 cursor patch prompt** - 生成 Cursor 可用的 prompt
 3. **重构为3层** - 完整重构为平台/渲染/UI 三层架构
 
+

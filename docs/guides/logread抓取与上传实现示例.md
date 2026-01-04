@@ -368,3 +368,4 @@ void LogUploadService::threadLoop() {
 **最后更新**: 2025-12-30  
 **状态**: ✅ 核心文档，logread抓取与上传实现示例
 
+

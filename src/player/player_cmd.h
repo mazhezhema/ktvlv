@@ -19,3 +19,4 @@ struct PlayerCmd {
     int value = 0;    // SET_VOLUME / SWITCH_TRACK 用
 };
 
+

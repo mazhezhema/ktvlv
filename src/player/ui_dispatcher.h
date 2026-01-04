@@ -8,3 +8,4 @@ public:
     static void post(const std::function<void()>& task);
 };
 
+

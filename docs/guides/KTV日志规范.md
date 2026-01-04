@@ -208,3 +208,4 @@ syslog(LOG_INFO, "player start");  // 禁止！必须用 [ktv][player][start]
 **最后更新**: 2025-12-30  
 **状态**: ✅ 核心文档，KTV日志规范
 
+

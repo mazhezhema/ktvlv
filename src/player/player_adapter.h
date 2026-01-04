@@ -36,3 +36,4 @@ private:
     Impl* impl_; // PIMPL 隐藏实现细节
 };
 
+

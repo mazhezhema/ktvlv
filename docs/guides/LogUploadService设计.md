@@ -259,3 +259,4 @@ bool LogUploadService::uploadLogs(const std::string& payload) {
 **最后更新**: 2025-12-30  
 **状态**: ✅ 核心文档，LogUploadService设计
 
+
