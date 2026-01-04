@@ -469,6 +469,12 @@ void threadLoop() {
 3. **行为不可预测**：无法精确控制唤醒时机
 4. **不符合嵌入式工程实践**：嵌入式应用需要精确控制 CPU 使用
 
+**关键理解**：
+
+> **sleep ≠ 调度**  
+> **sleep ≠ 等待**  
+> **sleep = 不可控延迟**
+
 ✅ **正确做法**：
 
 ```cpp
@@ -483,6 +489,60 @@ void threadLoop() {
             });  // 正确！阻塞等待，零 CPU 占用
             
             if (!running_.load()) break;
+            
+            task = std::move(tasks_.front());
+            tasks_.pop();
+        }
+        
+        processTask(task);
+    }
+}
+```
+
+### 🚫 坑 4.1：把"常驻线程"写成"死循环线程"
+
+```cpp
+// ❌ 错误：死循环线程
+void threadLoop() {
+    while (true) {  // 错误！死循环，无法退出
+        doWork();
+        usleep(1000);
+    }
+}
+
+// ❌ 错误：常驻线程 = while(1)
+void threadLoop() {
+    while (1) {  // 错误！无法退出
+        processTask();
+    }
+}
+```
+
+**问题**：
+
+1. **无法退出**：死循环无法响应退出信号
+2. **资源泄漏**：线程无法正常退出，资源无法回收
+3. **不符合工程实践**：常驻线程必须可退出
+
+**关键理解**：
+
+> **常驻 ≠ while(1)**  
+> **常驻线程必须可阻塞、可唤醒、可退出**
+
+✅ **正确做法**：
+
+```cpp
+// ✅ 正确：常驻线程 = 可阻塞、可唤醒、可退出
+void threadLoop() {
+    while (running_.load()) {  // 正确！可退出
+        Task task;
+        {
+            std::unique_lock<std::mutex> lock(mtx_);
+            cv_.wait(lock, [this]() {
+                return !tasks_.empty() || !running_.load();
+            });  // 正确！可阻塞、可唤醒
+            
+            if (!running_.load()) break;  // 正确！可退出
             
             task = std::move(tasks_.front());
             tasks_.pop();
@@ -607,34 +667,50 @@ void NetworkWorker::onThreadStart() {
 1. ✅ **Singleton 线程必须显式 start / stop**
    - 禁止在构造函数中启动线程
    - 禁止在 `instance()` 中隐式启动
-   - 必须由 App 主流程显式调用 start() 和 stop()
+   - 必须由 AppRuntime 统一调用 start() 和 stop()
+   - 禁止各模块自行控制线程生命周期
 
 2. ✅ **禁止在构造函数中启动线程**
    - 构造函数只做轻量初始化
    - 线程在 start() 中创建
 
-3. ✅ **禁止使用 detach**
+3. ✅ **禁止使用 detach（硬规则）**
    - 所有线程必须支持 join
    - 必须在 stop() 中显式 join
+   - **硬规则**：项目中禁止使用 `std::thread::detach()`，所有线程必须可 join、可停止、可回收
 
-4. ✅ **所有线程必须使用阻塞等待**
+4. ✅ **所有线程必须使用阻塞等待（硬规则）**
    - 使用 `condition_variable` 阻塞等待
    - 禁止 busy-loop（while + sleep）
    - 禁止轮询检查
+   - **硬规则**：常驻线程必须可阻塞、可唤醒、可退出，禁止 `while(1)` 死循环
+   - **关键理解**：sleep ≠ 调度，sleep ≠ 等待，sleep = 不可控延迟
 
 5. ✅ **所有线程必须支持显式 join**
    - 在 stop() 中显式 join
    - 禁止在析构函数中 join
    - 禁止使用 detach
 
-6. ✅ **Singleton 之间不得在构造期互相依赖**
-   - 禁止在构造函数中访问其他 Singleton
+6. ✅ **Singleton 之间不得在构造期互相依赖（硬规则）**
+   - **禁止在构造函数中访问其他 Singleton**
+   - **禁止在构造函数中调用其他 Singleton::instance()**
    - 可以在 onThreadStart() 中访问其他 Singleton
+   - **这是救命规则，必须严格遵守**
 
 7. ✅ **资源初始化/清理位置明确**
    - 初始化：onThreadStart()（在线程内）
    - 清理：onThreadStop()（在线程内）
    - 禁止在构造函数/析构函数中做重活
+
+8. ✅ **线程内禁止抛异常（硬规则）**
+   - 线程主循环中禁止抛出异常
+   - 所有异常必须在线程内部捕获并转为错误码/状态上报
+   - 禁止让异常导致线程崩溃
+
+9. ✅ **禁止依赖 C++ static 析构顺序（硬规则）**
+   - 不依赖 C++ static 析构顺序
+   - 所有线程必须在 App 主流程中显式 stop
+   - 禁止在析构函数中隐式 join
 
 ---
 
