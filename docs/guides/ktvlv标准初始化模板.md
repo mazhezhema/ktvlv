@@ -2,7 +2,7 @@
 
 ## 🎯 适用于 F133 平台初始化流程
 
-> **注意**：本文档主要针对 F133 平台。Windows SDL 相关内容仅供参考（开发阶段）。
+> **注意**：本文档仅针对 F133 平台。所有 SDL 仿真相关代码已删除。
 
 本文档提供 ktvlv 项目的标准初始化模板，确保 UI 初始化顺序正确，避免 0xC0000005 崩溃和首帧刷新问题。
 
@@ -17,8 +17,17 @@
 lv_init();
 
 // ============================================================
-// 2️⃣ 显示驱动初始化（SDL/FB）
+// 2️⃣ 显示驱动初始化（F133 framebuffer）
 // ============================================================
+#ifdef KTV_PLATFORM_F133_LINUX
+#include "drivers/display_driver.h"
+
+// 初始化 framebuffer 驱动
+if (!DISPLAY.init()) {
+    // 错误处理
+    return -1;
+}
+
 lv_disp_draw_buf_t draw_buf;
 lv_color_t buf1[LV_HOR_RES_MAX * 100];
 lv_color_t buf2[LV_HOR_RES_MAX * 100];
@@ -26,20 +35,33 @@ lv_disp_draw_buf_init(&draw_buf, buf1, buf2, LV_HOR_RES_MAX * 100);
 
 lv_disp_drv_t disp_drv;
 lv_disp_drv_init(&disp_drv);
-disp_drv.flush_cb = sdl_display_flush;  // 或 fbdev_display_flush (F133)
+disp_drv.flush_cb = DISPLAY.flush;  // F133 framebuffer flush
 disp_drv.draw_buf = &draw_buf;
 disp_drv.hor_res = LV_HOR_RES_MAX;
 disp_drv.ver_res = LV_VER_RES_MAX;
 lv_disp_t* disp = lv_disp_drv_register(&disp_drv);
+lv_disp_set_default(disp);
+#endif
 
 // ============================================================
-// 3️⃣ 输入驱动初始化
+// 3️⃣ 输入驱动初始化（F133 evdev）
 // ============================================================
-lv_indev_drv_t indev_drv;
-lv_indev_drv_init(&indev_drv);
-indev_drv.type = LV_INDEV_TYPE_POINTER;  // 或 LV_INDEV_TYPE_KEYPAD
-indev_drv.read_cb = sdl_mouse_read;      // 或 evdev_read (F133)
-lv_indev_drv_register(&indev_drv);
+#ifdef KTV_PLATFORM_F133_LINUX
+#include "drivers/input_driver.h"
+#include "platform/f133_linux/input_evdev.h"
+
+// 初始化 evdev 驱动
+if (!INPUT.init()) {
+    // 错误处理
+    return -1;
+}
+
+// 注册触摸屏设备
+INPUT.register_device(INPUT_TYPE_POINTER);
+
+// 注册遥控器/键盘设备
+INPUT.register_device(INPUT_TYPE_KEYPAD);
+#endif
 
 // ============================================================
 // 4️⃣ UI 系统初始化（主题、缩放、焦点）
@@ -70,7 +92,7 @@ lv_scr_load(scr);
 lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);
 
 // 短暂延迟，让对象创建完成（但不触发刷新）
-SDL_Delay(20);  // 或 usleep(20000) (F133)
+usleep(20000);  // 20ms
 
 // ============================================================
 // 8️⃣ 主循环（带首次刷新保护）
@@ -90,14 +112,15 @@ while (!quit) {
                 fprintf(stderr, "First refresh: screen not ready yet (check #%d), skipping...\n", 
                         ready_check_count);
             }
-            SDL_Delay(10);  // 或 usleep(10000) (F133)
+            usleep(10000);  // 10ms
             continue;
         }
     }
     
     // 正常刷新流程
     uint32_t delay = lv_timer_handler();
-    SDL_Delay(delay > 5 ? delay : 5);  // 或 usleep((delay > 5 ? delay : 5) * 1000) (F133)
+    uint32_t delay_ms = delay > 5 ? delay : 5;
+    usleep(delay_ms * 1000);  // 转换为微秒
     
     // 处理输入事件
     // ...
@@ -182,7 +205,7 @@ lv_timer_handler();          // ❌ 过早
 ```cpp
 lv_scr_load(scr);
 lv_obj_set_size(scr, LV_HOR_RES_MAX, LV_VER_RES_MAX);  // ✅ 安全操作
-SDL_Delay(20);  // ✅ 让对象创建完成
+usleep(20000);  // ✅ 让对象创建完成（20ms）
 // 进入主循环后再刷新
 ```
 
@@ -202,18 +225,11 @@ SDL_Delay(20);  // ✅ 让对象创建完成
 
 ---
 
-## 🚀 平台适配
+## 🚀 F133 平台实现
 
-### Windows SDL
-```cpp
-SDL_Delay(ms);  // 延迟
-SDL_Event e;    // 事件处理
-```
-
-### F133 Linux
 ```cpp
 usleep(ms * 1000);  // 延迟（微秒）
-// evdev 事件处理
+evdev_read_events_exported();  // evdev 事件处理（在主循环中调用）
 ```
 
 ---
@@ -301,12 +317,12 @@ usleep(ms * 1000);  // 延迟（微秒）
 
 遵循此模板，可以确保 F133 平台稳定运行，避免初始化阶段的崩溃和刷新问题。
 
-> **注意**：本文档主要针对 F133 平台。Windows SDL 相关内容仅供参考（开发阶段）。
+> **注意**：本文档仅针对 F133 平台。所有 SDL 仿真相关代码已删除。
 
 ---
 
 **文档版本：** v1.0  
 **最后更新：** 2025-12-30  
-**适用平台：** F133 Linux（主要），Windows SDL（开发阶段参考）
+**适用平台：** F133 Linux（唯一支持的平台）
 
 

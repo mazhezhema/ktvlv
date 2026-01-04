@@ -4,11 +4,19 @@
 namespace ktv::events {
 
 void EventBus::publish(const Event& ev) {
-    queue_.enqueue(ev);
+    std::lock_guard<std::mutex> lock(mutex_);
+    queue_.push(ev);
+    condition_.notify_one();
 }
 
 bool EventBus::poll(Event& ev) {
-    return queue_.try_dequeue(ev);
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (queue_.empty()) {
+        return false;
+    }
+    ev = queue_.front();
+    queue_.pop();
+    return true;
 }
 
 void EventBus::dispatchOnUiThread() {

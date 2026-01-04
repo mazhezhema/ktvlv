@@ -10,12 +10,7 @@
       audio_driver.h   # 音频驱动接口
       
   /platform
-      /windows_sdl/     # Windows SDL 平台实现
-          display_sdl.c
-          input_sdl.c
-          audio_stub.c
-          
-      /f133_linux/      # F133 Linux 平台实现
+      /f133_linux/      # F133 Linux 平台实现（唯一支持的平台）
           display_fbdev.c
           input_evdev.c
           audio_alsa.c
@@ -115,17 +110,17 @@ INPUT.register_device(INPUT_TYPE_KEYPAD);    // 遥控器
    - 如果不需要系统音效，可以保持 stub 实现
    - 播放器音频由播放器层直接处理
 
-## 🚀 迁移步骤
+## ⚠️ 重要说明
 
-1. **保留现有代码**：`src/sdl/` 暂时保留，逐步迁移
-2. **测试新接口**：在 Windows SDL 上验证新接口工作正常
-3. **实现 F133**：根据实际硬件配置调整 F133 实现
-4. **切换平台**：通过 CMake 选项切换，验证功能
+**所有 SDL 仿真相关代码已删除**：
+
+1. **不再支持 Windows SDL 平台**：项目仅支持 F133 Linux 平台
+2. **SDL 代码已完全移除**：`src/sdl/` 和 `platform/windows_sdl/` 已删除
+3. **仅使用 F133 平台驱动**：framebuffer + evdev
 
 ## 📚 相关文档
 
-- [SDL仿真最佳实践与避坑指南.md](../SDL仿真最佳实践与避坑指南.md)
-- [F133_KTV移植方案总结.md](../F133_KTV移植方案总结.md)
+- [F133_KTV移植方案总结.md](../guides/F133_KTV移植方案总结.md)
 
 
 

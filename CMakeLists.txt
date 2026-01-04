@@ -15,7 +15,7 @@ set(LV_DRIVERS_TAG master CACHE STRING "lv_drivers branch/tag")
 set(LV_CONF_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lv_conf.h" CACHE STRING "Path to lv_conf.h")
 
 # ------------------------------------------------------------
-# Dependencies: LVGL + lv_drivers + SDL2
+# Dependencies: LVGL + lv_drivers
 # ------------------------------------------------------------
 include(FetchContent)
 
@@ -35,7 +35,7 @@ FetchContent_Declare(
 set(LV_ENABLE_PKGCONFIG OFF CACHE BOOL "" FORCE)
 set(LV_DRIVERS_ENABLE_PKGCONFIG OFF CACHE BOOL "" FORCE)
 
-# 是否使用 lv_drivers（SDL/FB/evdev等）
+# 是否使用 lv_drivers（framebuffer/evdev等）
 option(KTV_USE_LV_DRIVERS "Use lv_drivers (framebuffer/evdev等)" ON)
 
 if (KTV_USE_LV_DRIVERS)
@@ -43,9 +43,6 @@ if (KTV_USE_LV_DRIVERS)
 else()
   FetchContent_MakeAvailable(lvgl)
 endif()
-
-# SDL2 (expect installed on Windows; e.g., via vcpkg: vcpkg install sdl2)
-find_package(SDL2 REQUIRED)
 
 # ------------------------------------------------------------
 # inih (INI parser) for配置读取
@@ -70,6 +67,9 @@ FetchContent_MakeAvailable(cjson)
 # curl (via vcpkg)
 find_package(CURL CONFIG REQUIRED)
 
+# SQLite3 (系统自带，F133 平台必需)
+find_package(SQLite3 REQUIRED)
+
 # ------------------------------------------------------------
 # 平台选择选项（默认使用旧代码，新架构可选）
 # ------------------------------------------------------------
@@ -83,16 +83,12 @@ if(KTV_USE_NEW_PLATFORM_ARCH)
         set(PLATFORM_DISPLAY_SRC platform/f133_linux/display_fbdev.c)
         set(PLATFORM_INPUT_SRC platform/f133_linux/input_evdev.c)
         set(PLATFORM_AUDIO_SRC platform/f133_linux/audio_alsa.c)
+        set(CORE_SRC core/app_main.c)
     else()
-        message(STATUS "Platform: Windows SDL (New Architecture)")
-        add_definitions(-DKTV_PLATFORM_WINDOWS_SDL)
-        set(PLATFORM_DISPLAY_SRC platform/windows_sdl/display_sdl.c)
-        set(PLATFORM_INPUT_SRC platform/windows_sdl/input_sdl.c)
-        set(PLATFORM_AUDIO_SRC platform/windows_sdl/audio_stub.c)
+        message(FATAL_ERROR "Only F133 Linux platform is supported. Set KTV_PLATFORM_F133_LINUX=ON")
     endif()
-    set(CORE_SRC core/app_main.c)
 else()
-    message(STATUS "Platform: Windows SDL (Legacy - using src/sdl/)")
+    message(FATAL_ERROR "Only new platform architecture is supported. Set KTV_USE_NEW_PLATFORM_ARCH=ON and KTV_PLATFORM_F133_LINUX=ON")
 endif()
 
 # ------------------------------------------------------------
@@ -103,31 +99,18 @@ file(GLOB SERVICE_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/service
 file(GLOB EVENT_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/events/*.cpp")
 file(GLOB CONFIG_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/config/*.cpp")
 
-if(KTV_USE_NEW_PLATFORM_ARCH)
-    # 使用新架构
-    add_executable(ktvlv
-      src/main.cpp
-      ${UI_SRC}
-      ${SERVICE_SRC}
-      ${EVENT_SRC}
-      ${CONFIG_SRC}
-      ${PLATFORM_DISPLAY_SRC}
-      ${PLATFORM_INPUT_SRC}
-      ${PLATFORM_AUDIO_SRC}
-      ${CORE_SRC}
-    )
-else()
-    # 使用旧架构（兼容现有代码）
-    file(GLOB SDL_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/sdl/*.cpp")
-    add_executable(ktvlv
-      src/main.cpp
-      ${UI_SRC}
-      ${SERVICE_SRC}
-      ${EVENT_SRC}
-      ${CONFIG_SRC}
-      ${SDL_SRC}
-    )
-endif()
+# 使用新架构（仅支持F133 Linux）
+add_executable(ktvlv
+  src/main.cpp
+  ${UI_SRC}
+  ${SERVICE_SRC}
+  ${EVENT_SRC}
+  ${CONFIG_SRC}
+  ${PLATFORM_DISPLAY_SRC}
+  ${PLATFORM_INPUT_SRC}
+  ${PLATFORM_AUDIO_SRC}
+  ${CORE_SRC}
+)
 
 target_include_directories(ktvlv PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -160,25 +143,18 @@ endif()
 target_link_libraries(ktvlv PRIVATE
   lvgl
   lvgl::lvgl
-  SDL2::SDL2
-  SDL2::SDL2main
   CURL::libcurl
   cjson
+  SQLite::SQLite3
 )
 
 # inih is a single-file library, add source instead of linking
 target_sources(ktvlv PRIVATE ${inih_SOURCE_DIR}/ini.c)
 
-# lv_drivers is C-only; add its sources to target
+# lv_drivers is C-only; add its sources to target (framebuffer/evdev for F133)
 if (KTV_USE_LV_DRIVERS)
   target_include_directories(ktvlv PRIVATE ${lv_drivers_SOURCE_DIR})
-  file(GLOB LV_DRIVERS_SRC
-    "${lv_drivers_SOURCE_DIR}/SDL/*.c"
-  )
-  target_sources(ktvlv PRIVATE ${LV_DRIVERS_SRC})
-  if (TARGET lv_drivers)
-    target_link_libraries(lv_drivers PUBLIC SDL2::SDL2 SDL2::SDL2main)
-  endif()
+  # F133平台使用framebuffer和evdev驱动，不使用SDL
 endif()
 
 # Use our local lv_conf.h / lv_drv_conf.h
@@ -197,14 +173,6 @@ endif()
 # 自动复制运行时DLL到输出目录（快速构建优化）
 # ------------------------------------------------------------
 if (WIN32)
-  # 复制SDL2 DLL
-  add_custom_command(TARGET ktvlv POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:SDL2::SDL2>
-    $<TARGET_FILE_DIR:ktvlv>
-    COMMENT "复制 SDL2.dll..."
-  )
-  
   # 复制libcurl DLL
   add_custom_command(TARGET ktvlv POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

@@ -659,6 +659,99 @@ UiEventBus::instance().subscribe("search_result_update", [](const std::string& d
 
 ---
 
+## 📚 HistoryService（历史记录服务）
+
+### 接口定义
+
+```cpp
+struct HistoryItem {
+    std::string song_id;      // 歌曲ID
+    std::string title;        // 歌曲名称
+    std::string artist;       // 歌手
+    std::string local_path;   // 本地文件路径（可选）
+};
+
+class HistoryService {
+public:
+    static HistoryService& getInstance();
+    
+    /**
+     * 初始化服务
+     * @param db_path 数据库文件路径（如 "/data/ktv_history.db"）
+     * @param max_count 最大记录数（默认 50）
+     * @return true 成功，false 失败
+     */
+    bool initialize(const std::string& db_path = "/data/ktv_history.db", int max_count = 50);
+    
+    /**
+     * 关闭服务
+     */
+    void shutdown();
+    
+    /**
+     * 设置容量（兼容旧 API）
+     * @param cap 最大记录数
+     */
+    void setCapacity(size_t cap);
+    
+    /**
+     * 添加历史记录
+     * @param item 历史记录项
+     */
+    void add(const HistoryItem& item);
+    
+    /**
+     * 获取历史记录列表（按播放时间倒序）
+     * @return 历史记录列表
+     */
+    std::vector<HistoryItem> items() const;
+    
+    /**
+     * 清空所有历史记录
+     * @return true 成功，false 失败
+     */
+    bool clear();
+    
+    /**
+     * 获取记录总数
+     * @return 记录总数
+     */
+    int getCount() const;
+};
+```
+
+### 使用示例
+
+```cpp
+// 初始化（应用启动时）
+HistoryService::instance().initialize("/data/ktv_history.db", 50);
+
+// 播放结束时添加记录
+HistoryItem item;
+item.song_id = "12345";
+item.title = "稻香";
+item.artist = "周杰伦";
+item.local_path = "/data/cache/song123/index.m3u8";
+HistoryService::instance().add(item);
+
+// 获取历史记录列表
+auto history = HistoryService::instance().items();
+for (const auto& item : history) {
+    // 显示历史记录
+}
+
+// 清空历史记录
+HistoryService::instance().clear();
+```
+
+**注意**：
+- 使用 SQLite 进行持久化存储
+- 50/100 条上限，每次插入后自动裁剪
+- 线程安全（内部使用 SQLite 线程安全机制）
+- 详见 [历史记录SQLite实现设计.md](./design/历史记录SQLite实现设计.md)
+
+---
+
 ## 📝 LoggingService（日志服务）
 
 ### 接口定义

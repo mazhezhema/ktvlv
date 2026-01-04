@@ -2,19 +2,13 @@
 extern "C" {
 #include <lvgl.h>
 }
-#include <SDL.h>
 #include <cstdio>
 #include <exception>
-#ifdef _WIN32
-#include <conio.h>
-#include <windows.h>
-#include <io.h>
-#include <fcntl.h>
-#endif
+#include <unistd.h>
+#include <time.h>
 #include "ui/layouts.h"
 #include "ui/page_manager.h"
 #include "ui/ui_scale.h"
-#include "sdl/sdl.h"
 #include <syslog.h>
 #include "config/config.h"
 #include "services/http_service.h"
@@ -24,6 +18,15 @@ extern "C" {
 #include "services/m3u8_download_service.h"
 #include "services/player_service.h"
 #include "events/event_bus.h"
+
+// F133 平台驱动接口
+#ifdef KTV_PLATFORM_F133_LINUX
+extern "C" {
+#include "drivers/display_driver.h"
+#include "drivers/input_driver.h"
+#include "platform/f133_linux/input_evdev.h"
+}
+#endif
 
 static lv_disp_draw_buf_t draw_buf;
 // ✅ 第一步修复：改为全屏单buffer模式，避免partial buffer带来的复杂刷新逻辑
@@ -41,12 +44,19 @@ static bool init_display() {
         return false;
     }
 
-    syslog(LOG_INFO, "[ktv][sys][init] component=sdl");
-    fprintf(stderr, "[INIT] SDL display initialization (%dx%d)...\n", (int)width, (int)height);
-    if (!sdl_init()) {
-        syslog(LOG_ERR, "[ktv][sys][init_fail] component=sdl");
+    syslog(LOG_INFO, "[ktv][sys][init] component=display");
+    fprintf(stderr, "[INIT] Display initialization (%dx%d)...\n", (int)width, (int)height);
+    
+#ifdef KTV_PLATFORM_F133_LINUX
+    // F133 平台：使用 framebuffer 驱动
+    if (!DISPLAY.init()) {
+        syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=fbdev_init_failed");
         return false;
     }
+#else
+    syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=platform_not_supported");
+    return false;
+#endif
 
     syslog(LOG_INFO, "[ktv][sys][init] component=lvgl_buffer mode=full_screen");
     fprintf(stderr, "[INIT] LVGL display buffer: %dx%d (full screen buffer)\n",
@@ -72,7 +82,12 @@ static bool init_display() {
     disp_drv.ver_res = height;
     
     // ⚠️ 必须设置 flush 回调，否则 LVGL 无法刷新屏幕
-    disp_drv.flush_cb = sdl_display_flush;
+#ifdef KTV_PLATFORM_F133_LINUX
+    disp_drv.flush_cb = DISPLAY.flush;
+#else
+    syslog(LOG_ERR, "[ktv][sys][init_fail] component=display reason=platform_not_supported");
+    return false;
+#endif
     disp_drv.draw_buf = &draw_buf;
     
     // ✅ 第一步修复：开启full_refresh，让LVGL每次都刷全屏，简化flush逻辑
@@ -124,12 +139,11 @@ static bool init_display() {
     } else {
         fprintf(stderr, "✅ [DIAG] flush_cb still valid in disp_drv: %p\n", 
                 (void*)disp_drv.flush_cb);
-        // ✅ 验证函数指针是否指向我们的函数
-        if (disp_drv.flush_cb == sdl_display_flush) {
-            fprintf(stderr, "✅ [DIAG] flush_cb matches sdl_display_flush function\n");
+        // ✅ 验证函数指针是否已设置
+        if (disp_drv.flush_cb != NULL) {
+            fprintf(stderr, "✅ [DIAG] flush_cb is set: %p\n", (void*)disp_drv.flush_cb);
         } else {
-            fprintf(stderr, "⚠️ [DIAG] flush_cb pointer mismatch! Expected: %p, Got: %p\n",
-                    (void*)sdl_display_flush, (void*)disp_drv.flush_cb);
+            fprintf(stderr, "⚠️ [DIAG] flush_cb is NULL\n");
         }
     }
 
@@ -207,31 +221,30 @@ static uint32_t safe_lv_timer_handler() {
 #endif
 
 static void init_input() {
-    lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_POINTER;
-    indev_drv.read_cb = sdl_mouse_read;
-    lv_indev_drv_register(&indev_drv);
-
-    lv_indev_drv_t kb_drv;
-    lv_indev_drv_init(&kb_drv);
-    kb_drv.type = LV_INDEV_TYPE_KEYPAD;
-    kb_drv.read_cb = sdl_keyboard_read;
-    lv_indev_drv_register(&kb_drv);
+#ifdef KTV_PLATFORM_F133_LINUX
+    // F133 平台：使用 evdev 驱动
+    if (!INPUT.init()) {
+        syslog(LOG_ERR, "[ktv][sys][init_fail] component=input reason=evdev_init_failed");
+        return;
+    }
+    
+    // 注册触摸屏设备
+    if (!INPUT.register_device(INPUT_TYPE_POINTER)) {
+        syslog(LOG_WARNING, "[ktv][sys][init] component=input reason=pointer_device_failed");
+    }
+    
+    // 注册遥控器/键盘设备
+    if (!INPUT.register_device(INPUT_TYPE_KEYPAD)) {
+        syslog(LOG_WARNING, "[ktv][sys][init] component=input reason=keypad_device_failed");
+    }
+#else
+    syslog(LOG_ERR, "[ktv][sys][init_fail] component=input reason=platform_not_supported");
+#endif
 }
 
-#ifdef __cplusplus
-extern "C"
-#endif
-int SDL_main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
-    
-    // Set Windows console to UTF-8 encoding to fix character encoding issues
-#ifdef _WIN32
-    SetConsoleOutputCP(65001);  // UTF-8
-    SetConsoleCP(65001);        // UTF-8
-#endif
     
     // Initialize syslog
     fprintf(stderr, "=== KTV LVGL Program Start ===\n");
@@ -265,7 +278,6 @@ int SDL_main(int argc, char* argv[]) {
     
         // ✅ 关键修复：UIScale 必须从实际显示驱动分辨率初始化
         // 不能使用宏，必须从 lv_disp_get_*_res 获取实际分辨率
-        // 这是适配不同平台（SDL/F133）的关键
         lv_disp_t* default_disp = lv_disp_get_default();
         lv_coord_t actual_width = LV_HOR_RES_MAX;
         lv_coord_t actual_height = LV_VER_RES_MAX;
@@ -298,12 +310,7 @@ int SDL_main(int argc, char* argv[]) {
             fprintf(stderr, "[INIT]   1. disp_drv.hor_res/ver_res not set before lv_disp_drv_register()\n");
             fprintf(stderr, "[INIT]   2. LVGL internal error during driver registration\n");
             fprintf(stderr, "[INIT]   3. Display driver structure was destroyed before registration\n");
-            fprintf(stderr, "Press any key to exit...\n");
-#ifdef _WIN32
-            _getch();
-#else
-            getchar();
-#endif
+            fprintf(stderr, "Exiting...\n");
             return -1;
         }
         
@@ -342,12 +349,7 @@ int SDL_main(int argc, char* argv[]) {
         if (!scr || !lv_obj_is_valid(scr)) {
             syslog(LOG_ERR, "[ktv][sys][init_fail] component=main_screen reason=create_failed");
             fprintf(stderr, "create_main_screen returned NULL or invalid\n");
-            fprintf(stderr, "Press any key to exit...\n");
-#ifdef _WIN32
-            _getch();
-#else
-            getchar();
-#endif
+            fprintf(stderr, "Exiting...\n");
             return -1;
         }
         fprintf(stderr, "Main screen created successfully\n");
@@ -372,7 +374,7 @@ int SDL_main(int argc, char* argv[]) {
         lv_tick_inc(1);  // 初始化 tick
         
         // ✅ 关键修复：短暂延迟，让对象创建完成（但不触发刷新）
-        SDL_Delay(20);
+        usleep(20000);  // 20ms
         
         // ✅ 关键修复：标记屏幕无效，让主循环自然处理刷新
         lv_obj_invalidate(scr);
@@ -391,26 +393,28 @@ int SDL_main(int argc, char* argv[]) {
         }
 
         syslog(LOG_INFO, "[ktv][sys][ready] status=initialization_complete");
-        fprintf(stderr, "Program ready. Close window or press ESC to exit.\n");
+        fprintf(stderr, "Program ready. Running main loop...\n");
 
         // 主循环：按照最佳实践，刷新权完全交给LVGL
-        // 顺序：先更新 tick，再 lv_timer_handler（触发渲染），再处理SDL事件
+        // 顺序：先更新 tick，再 lv_timer_handler（触发渲染），再处理输入事件
         bool quit = false;
-        SDL_Event e;
         int loop_count = 0;
         
-        // ✅ 关键修复：初始化 SDL tick 跟踪
-        uint32_t last_tick = SDL_GetTicks();
+        // ✅ 关键修复：初始化 tick 跟踪（使用 clock_gettime）
+        struct timespec last_time;
+        clock_gettime(CLOCK_MONOTONIC, &last_time);
         bool first_loop = true;
         int loop_count_before_flush = 0;
         
-        fprintf(stderr, "[MAIN] Starting main loop, last_tick=%u\n", last_tick);
+        fprintf(stderr, "[MAIN] Starting main loop\n");
         
         while (!quit) {
             // ✅ 核心修复：LVGL tick 更新（必须在 lv_timer_handler 之前）
             // 这是 LVGL 的心跳，没有 tick → 没有刷新 → flush 不会触发
-            uint32_t now = SDL_GetTicks();
-            uint32_t elapsed = now - last_tick;
+            struct timespec now;
+            clock_gettime(CLOCK_MONOTONIC, &now);
+            uint32_t elapsed = (now.tv_sec - last_time.tv_sec) * 1000 + 
+                              (now.tv_nsec - last_time.tv_nsec) / 1000000;
             
             // ⚠️ 关键：即使 elapsed = 0，也要确保 tick 系统已初始化
             // 第一次循环时可能 elapsed = 0，但后续必须更新
@@ -420,7 +424,7 @@ int SDL_main(int argc, char* argv[]) {
                     fprintf(stderr, "[MAIN] Tick updated: elapsed=%ums (loop #%d)\n", 
                             elapsed > 0 ? elapsed : 1, loop_count);
                 }
-                last_tick = now;
+                last_time = now;
             }
             
             // ✅ 调试：首次循环时强制触发刷新
@@ -485,7 +489,7 @@ int SDL_main(int argc, char* argv[]) {
             }
 
             // ✅ 关键修复：在主线程中分发 EventBus 事件，确保所有 UI 更新都在主线程执行
-            // 这是避免多线程访问 LVGL 导致 0xC0000005 崩溃的关键步骤
+            // 这是避免多线程访问 LVGL 导致崩溃的关键步骤
             // 所有后台线程（下载、播放器等）只能通过 EventBus 发布事件，不能直接操作 UI
             try {
                 ktv::events::EventBus::getInstance().dispatchOnUiThread();
@@ -497,31 +501,15 @@ int SDL_main(int argc, char* argv[]) {
                 syslog(LOG_ERR, "[ktv][sys][error] component=eventbus exception=unknown");
             }
             
-            while (SDL_PollEvent(&e)) {
-                try {
-                    if (e.type == SDL_QUIT) {
-                        syslog(LOG_INFO, "[ktv][sys][event] type=quit");
-                        quit = true;
-                    } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
-                        syslog(LOG_INFO, "[ktv][sys][event] type=key_escape");
-                        quit = true;
-                    } else {
-                        // 更新输入设备状态（鼠标、键盘）
-                        sdl_update_mouse_state(&e);
-                        sdl_update_keyboard_state(&e);
-                    }
-                } catch (const std::exception& ex) {
-                    fprintf(stderr, "ERROR processing SDL event: %s\n", ex.what());
-                    // 继续处理下一个事件
-                } catch (...) {
-                    fprintf(stderr, "ERROR processing SDL event: unknown exception\n");
-                    // 继续处理下一个事件
-                }
-            }
+#ifdef KTV_PLATFORM_F133_LINUX
+            // F133 平台：读取 evdev 输入事件
+            evdev_read_events_exported();
+#endif
             
             // ✅ 关键修复：避免 CPU 打满，让 LVGL 有机会触发刷新
             // 这是 LVGL 刷新循环的关键，没有 delay → 刷新可能被跳过
-            SDL_Delay(task_delay > 5 ? task_delay : 5);
+            uint32_t delay_ms = task_delay > 5 ? task_delay : 5;
+            usleep(delay_ms * 1000);  // 转换为微秒
 
             loop_count++;
             if (loop_count % 1000 == 0) {
@@ -540,12 +528,7 @@ int SDL_main(int argc, char* argv[]) {
         } catch (...) {
             // Logger system may also have problems, ignore
         }
-        fprintf(stderr, "\nPress any key to exit...\n");
-#ifdef _WIN32
-        _getch();
-#else
-        getchar();
-#endif
+        fprintf(stderr, "\nExiting...\n");
         return -1;
     } catch (...) {
         fprintf(stderr, "\n=== Program Exception Exit ===\n");
@@ -555,12 +538,7 @@ int SDL_main(int argc, char* argv[]) {
         } catch (...) {
             // Logger system may also have problems, ignore
         }
-        fprintf(stderr, "\nPress any key to exit...\n");
-#ifdef _WIN32
-        _getch();
-#else
-        getchar();
-#endif
+        fprintf(stderr, "\nExiting...\n");
         return -1;
     }
 }

@@ -2,8 +2,9 @@
 #define KTVLV_EVENTS_EVENT_BUS_H
 
 #include "event_types.h"
-#include "concurrentqueue.h"
-#include <atomic>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 namespace ktv::events {
 
@@ -31,7 +32,9 @@ private:
     EventBus() = default;
     ~EventBus() = default;
 
-    moodycamel::ConcurrentQueue<Event> queue_;
+    std::queue<Event> queue_;
+    std::mutex mutex_;
+    std::condition_variable condition_;
 };
 
 }  // namespace ktv::events
