@@ -1,7 +1,9 @@
-# Build artifacts
-build/
-build_ninja/
-build_ninja2/
+# Build artifacts (根目录下的构建目录)
+/build/
+/build_ninja/
+/build_ninja2/
+# 但保留文档目录下的 build 文件夹
+!docs/build/
 out/
 *.o
 *.obj
