@@ -225,7 +225,104 @@ COMMIT;
 
 ---
 
-## 五、最佳实践
+## 五、SQLite 使用规则（禁止事项）
+
+> **⚠️ 铁律**：SQLite 使用规则必须严格遵守，违反这些规则会导致数据损坏、性能问题或系统崩溃。
+
+### ❌ 严格禁止事项
+
+1. **禁止多线程写数据库**
+   - ❌ 多个线程同时执行 INSERT/UPDATE/DELETE
+   - ✅ 所有数据库操作必须在单一线程中执行（通过消息队列）
+
+2. **禁止 UI 线程直接执行 SQL**
+   - ❌ 在 UI 回调中直接调用 `sqlite3_exec()`
+   - ❌ 在 LVGL 事件处理中直接操作数据库
+   - ✅ 所有数据库操作通过 Service 层（消息队列）
+
+3. **禁止长事务**
+   - ❌ 事务跨越多个业务操作
+   - ❌ 事务中包含耗时操作（网络请求、文件IO）
+   - ✅ 事务范围最小化，只包含数据库操作
+
+4. **禁止使用 ORM**
+   - ❌ 使用 ORM 框架（SQLiteORM、sqlpp11 等）
+   - ✅ 直接使用 SQLite C API 和 Prepared Statement
+
+5. **禁止动态 SQL 拼接**
+   - ❌ `sprintf(sql, "SELECT * FROM songs WHERE id=%d", id)`（SQL注入风险）
+   - ✅ 使用 Prepared Statement 和参数绑定
+
+6. **禁止在循环中执行 SQL**
+   - ❌ `for (auto& item : items) { sqlite3_exec(db, "INSERT ..."); }`
+   - ✅ 使用事务批量插入：`BEGIN; INSERT ...; INSERT ...; COMMIT;`
+
+7. **禁止忽略错误处理**
+   - ❌ 不检查 `sqlite3_exec()` 返回值
+   - ✅ 所有 SQL 操作必须检查返回值并处理错误
+
+### ✅ 推荐做法
+
+1. **使用 Prepared Statement**
+   ```c
+   // ✅ 正确：使用 Prepared Statement
+   sqlite3_stmt* stmt;
+   sqlite3_prepare_v2(db, "INSERT INTO history (song_id, title) VALUES (?, ?)", -1, &stmt, NULL);
+   sqlite3_bind_text(stmt, 1, song_id, -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 2, title, -1, SQLITE_STATIC);
+   sqlite3_step(stmt);
+   sqlite3_finalize(stmt);
+   ```
+
+2. **使用事务批量操作**
+   ```c
+   // ✅ 正确：使用事务批量插入
+   sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+   for (auto& item : items) {
+       // 插入操作
+   }
+   sqlite3_exec(db, "COMMIT", NULL, NULL, NULL);
+   ```
+
+3. **单线程访问（通过消息队列）**
+   ```c
+   // ✅ 正确：所有数据库操作通过消息队列
+   void add_history_item(const HistoryItem& item) {
+       // 通过消息队列发送到数据库线程
+       DatabaseCmd cmd;
+       cmd.type = DB_CMD_INSERT;
+       cmd.data = &item;
+       DatabaseCmdQueue::instance().enqueue(cmd);
+   }
+   ```
+
+4. **错误处理和日志**
+   ```c
+   // ✅ 正确：检查错误并记录日志
+   int rc = sqlite3_step(stmt);
+   if (rc != SQLITE_DONE) {
+       syslog(LOG_ERR, "[ktv][db] SQL error: %s", sqlite3_errmsg(db));
+       return -1;
+   }
+   ```
+
+### 详细说明
+
+**多线程写数据库的风险**：
+- SQLite 虽然支持多线程，但在嵌入式环境中，多线程写会导致锁竞争和性能下降
+- 更严重的是，如果多个线程同时写，可能导致数据损坏
+
+**UI 线程直接执行 SQL 的风险**：
+- UI 线程阻塞会导致界面卡顿
+- LVGL 事件处理中执行 SQL 可能触发死锁
+
+**长事务的风险**：
+- 长事务会持有数据库锁，阻塞其他操作
+- 事务中包含耗时操作会导致数据库长时间不可用
+
+---
+
+## 六、最佳实践
 
 ### 5.1 初始化流程
 
