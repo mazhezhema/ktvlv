@@ -1,19 +1,29 @@
 # HTTP REST API客户端设计
 
 > **文档版本**：v1.0  
+> **最后更新**：2025-12-30  
+> **状态**：⚠️ **参考文档**（服务器API接口列表）  
 > **相关文档**：详见 [项目架构设计总览.md](./项目架构设计总览.md)  
 > **架构设计**：详见 [C++架构设计-预分配内存版本.md](./C++架构设计-预分配内存版本.md)  
 > **开源库选型**：详见 [开源库选型指南.md](./开源库选型指南.md)
 
 ## ⚠️ 重要说明
 
-**服务器端协议已确定**：基于HTTP的REST API，使用JSON格式。客户端只需实现HTTP客户端调用即可。
+**本文档主要内容**：
+- ✅ **服务器端API接口列表**：完整的REST API接口映射（仍有效）
+- ⚠️ **HTTP客户端实现设计**：已更新，请参考新的实现指南
 
-### 核心原则
+**实际实现请参考**：
+- ⭐⭐⭐ **[NetworkService与libcurl实现指南（MVP可落地版）.md](../guides/NetworkService与libcurl实现指南（MVP可落地版）.md)** - NetworkService异步Event驱动实现（**推荐**）
+- ⭐⭐⭐ **[服务层API设计文档.md](../服务层API设计文档.md)** - NetworkService API接口定义
+
+**服务器端协议已确定**：基于HTTP的REST API，使用JSON格式。客户端使用NetworkService（异步Event驱动）实现HTTP客户端调用。
+
+### 核心原则（实现时参考新文档）
 
 - ✅ **使用libcurl库**：成熟稳定的HTTP客户端库
-- ✅ **单线程设计**：libcurl支持单线程模式
-- ✅ **预分配缓冲区**：使用固定大小缓冲区接收响应
+- ✅ **NetworkService（Singleton）**：libcurl只在NetworkService中使用
+- ✅ **异步Event驱动**：网络请求结果通过EventQueue返回
 - ✅ **cJSON解析**：使用cJSON解析JSON响应
 - ✅ **低代码实现**：通过库简化实现，减少代码量
 

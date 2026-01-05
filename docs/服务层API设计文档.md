@@ -168,116 +168,100 @@ PlayerService::instance().onStateChanged([](PlayerState state) {
 
 ---
 
-## 🌐 HttpService（HTTP服务）
+## 🌐 NetworkService（网络服务）
+
+> **⚠️ 重要说明**：网络服务采用异步Event驱动架构，不使用同步返回接口。所有网络请求结果通过Event队列返回。  
+> **相关文档**：[NetworkService与libcurl实现指南（MVP可落地版）.md](./guides/NetworkService与libcurl实现指南（MVP可落地版）.md) ⭐⭐⭐ **必读**
 
 ### 接口定义
 
 ```cpp
-struct HttpRequest {
-    std::string url;
-    std::map<std::string, std::string> headers;
-    std::map<std::string, std::string> params;  // GET参数
-    std::string body;  // POST body
-};
-
-struct HttpResponse {
-    int statusCode;
-    std::string body;
-    std::map<std::string, std::string> headers;
-    bool success;  // true表示成功，false表示失败
-    std::string errorMessage;  // 错误信息
-};
-
-class HttpService {
+class NetworkService {
 public:
-    static HttpService& instance();
+    static NetworkService& instance();
     
-    // ========== GET请求 ==========
-    
-    /**
-     * GET请求（简单版本）
-     * @param url 请求URL
-     * @param params 查询参数（可选）
-     * @return HttpResponse
-     */
-    HttpResponse get(const std::string& url, 
-                     const std::map<std::string, std::string>& params = {});
+    // ========== 初始化 ==========
     
     /**
-     * GET请求（完整版本）
-     * @param request HttpRequest对象
-     * @return HttpResponse
+     * 初始化服务（在Network Worker线程启动时调用）
+     * @return true 成功，false 失败
      */
-    HttpResponse get(const HttpRequest& request);
-    
-    // ========== POST请求 ==========
+    bool init();
     
     /**
-     * POST请求（简单版本）
-     * @param url 请求URL
-     * @param body POST body（JSON字符串，仅用于网络层发送，系统内部不传递）
-     * @param headers 请求头（可选）
-     * @return HttpResponse
+     * 清理服务（在Network Worker线程停止时调用）
      */
-    HttpResponse post(const std::string& url, 
-                      const std::string& body,
-                      const std::map<std::string, std::string>& headers = {});
+    void cleanup();
+    
+    // ========== HTTP GET请求（异步，结果通过Event返回）==========
     
     /**
-     * POST请求（完整版本）
-     * @param request HttpRequest对象
-     * @return HttpResponse
+     * 获取分类数据
+     * @param categoryId 分类ID
+     * 结果通过 EventType::EVENT_CATEGORY_DATA_READY 事件返回
      */
-    HttpResponse post(const HttpRequest& request);
-    
-    // ========== 其他HTTP方法 ==========
-    
-    HttpResponse put(const HttpRequest& request);
-    HttpResponse del(const HttpRequest& request);  // DELETE
-    
-    // ========== 配置 ==========
+    void fetchCategory(int categoryId);
     
     /**
-     * 设置默认请求头
-     * @param headers 请求头
+     * 搜索歌曲
+     * @param keyword 搜索关键词
+     * 结果通过 EventType::EVENT_SEARCH_RESULT_READY 事件返回
      */
-    void setDefaultHeaders(const std::map<std::string, std::string>& headers);
+    void fetchSearch(const std::string& keyword);
     
     /**
-     * 设置超时时间（秒）
-     * @param timeout 超时时间
+     * 获取歌曲列表
+     * @param page 页码
+     * @param size 每页大小
+     * 结果通过 EventType::EVENT_SONG_LIST_READY 事件返回
      */
-    void setTimeout(int timeout);
+    void fetchSongList(int page, int size);
+    
+    // ========== HTTP POST请求（异步，结果通过Event返回）==========
+    
+    /**
+     * 添加歌曲到播放队列
+     * @param songId 歌曲ID
+     * 结果通过 EventType::EVENT_QUEUE_ADD_RESULT 事件返回
+     */
+    void postQueueAdd(int songId);
+    
+    /**
+     * 登录
+     * @param username 用户名
+     * @param password 密码
+     * 结果通过 EventType::EVENT_LOGIN_RESULT 事件返回
+     */
+    void postLogin(const std::string& username, const std::string& password);
 };
 ```
 
 ### 使用示例
 
 ```cpp
-// GET请求
-auto response = HttpService::instance().get("/api/search", {
-    {"q", "周杰伦"},
-    {"page", "1"},
-    {"size", "20"}
-});
+// ✅ 正确：异步请求，结果通过Event返回
+// 在CategoryService中调用
+NetworkService::instance().fetchCategory(123);
 
-if (response.success) {
-    // ✅ 正确：在网络层解析JSON，转换为struct
-    SongList list;
-    if (SongService::parseSongList(response.body, response.body.length(), &list)) {
-        // 使用struct，不传递JSON字符串
-        UiEventQueue::push(SongListEvent{list});
-    }
-} else {
-    Logger::error("请求失败: " + response.errorMessage);
-}
+// 在EventDispatcher中处理结果事件
+case EventType::EVENT_CATEGORY_DATA_READY:
+    CategoryService::instance().onDataReady(ev.arg1, ev.data);
+    break;
 
-// POST请求
-std::string jsonBody = R"({"song_id": 12345, "action": "like"})";
-auto response = HttpService::instance().post("/api/like", jsonBody, {
-    {"Content-Type", "application/json"}
-});
+// ✅ 正确：网络请求失败也通过Event返回
+case EventType::EVENT_NETWORK_ERROR:
+    // 处理网络错误
+    break;
 ```
+
+### 核心原则
+
+1. **异步Event驱动**：所有网络请求都是异步的，结果通过EventQueue返回
+2. **libcurl全局唯一**：libcurl只在NetworkService中使用，Singleton模式
+3. **回调只收数据**：libcurl回调只负责接收数据，不包含业务逻辑
+4. **避免回调地狱**：网络线程 → push event → Service收结果 → UI刷新
+
+**详细实现说明请参考**：[NetworkService与libcurl实现指南（MVP可落地版）.md](./guides/NetworkService与libcurl实现指南（MVP可落地版）.md)
 
 ---
 
@@ -598,64 +582,80 @@ DownloadService::instance().onCompleted(taskId, []() {
 
 ---
 
-## 📢 UiEventBus（UI事件总线）
+## 📢 事件系统（Event Queue + Event Dispatcher）
 
-### 接口定义
+> **⚠️ 重要说明**：MVP阶段使用简单的事件模型，不使用订阅/发布模式的EventBus。  
+> **相关文档**：[事件模型MVP实现指南（可落地版）.md](./guides/事件模型MVP实现指南（可落地版）.md) ⭐⭐⭐ **必读**  
+> **架构说明**：[事件架构规范.md](./architecture/事件架构规范.md) ⭐⭐ **参考**
+
+### 核心组件
+
+**事件系统由以下组件组成：**
+
+1. **EventQueue**：事件队列（`std::queue + mutex + condition_variable`）
+2. **EventDispatcher**：事件分发器（运行在Event Loop线程，使用switch路由）
+3. **AppEvent**：事件结构（最小化设计，只包含type、arg1、arg2、data）
+
+### 事件定义
 
 ```cpp
-class UiEventBus {
-public:
-    static UiEventBus& instance();
+enum class EventType {
+    // 网络事件
+    EVENT_CATEGORY_DATA_READY,
+    EVENT_SEARCH_RESULT_READY,
+    EVENT_SONG_LIST_READY,
+    EVENT_NETWORK_ERROR,
     
-    // ========== 发送事件 ==========
+    // 播放器事件
+    EVENT_PLAYER_STATE_CHANGED,
+    EVENT_PLAYER_PROGRESS,
     
-    /**
-     * 发送事件（使用结构化对象，推荐）
-     * @param eventName 事件名称
-     * @param data 事件数据（结构化对象，不传递JSON字符串）
-     */
-    template<typename T>
-    void post(const std::string& eventName, const T& data);
-    
-    /**
-     * 发送事件（原始JSON，仅用于特殊场景）
-     * @param eventName 事件名称
-     * @param json_data 事件数据（JSON字符串，不推荐使用）
-     * @deprecated 推荐使用 post(eventName, struct) 版本
-     */
-    void postRaw(const std::string& eventName, const std::string& json_data);
-    
-    // ========== 订阅事件 ==========
-    
-    /**
-     * 订阅事件
-     * @param eventName 事件名称
-     * @param callback 回调函数（参数：结构化对象，不传递JSON字符串）
-     */
-    void subscribe(const std::string& eventName, 
-                   std::function<void(const std::string&)> callback);
-    
-    /**
-     * 取消订阅
-     * @param eventName 事件名称
-     */
-    void unsubscribe(const std::string& eventName);
+    // 业务事件
+    EVENT_LOGIN_RESULT,
+    EVENT_QUEUE_ADD_RESULT,
+    // ...
+};
+
+struct AppEvent {
+    EventType type;
+    int arg1 = 0;           // 通用参数1
+    int arg2 = 0;           // 通用参数2
+    void* data = nullptr;   // 可选数据指针（预分配内存）
 };
 ```
 
-### 使用示例
+### 使用方式
 
 ```cpp
-// 发送事件
-UiEventBus::instance().post("search_result_update", songsJson);
-UiEventBus::instance().post("player_state_changed", "playing");
+// ✅ 正确：发送事件
+AppEvent ev;
+ev.type = EventType::EVENT_CATEGORY_DATA_READY;
+ev.arg1 = categoryId;
+ev.data = categoryData;  // 预分配内存
+EventQueue::instance().enqueue(ev);
 
-// 订阅事件
-UiEventBus::instance().subscribe("search_result_update", [](const std::string& data) {
-    auto songs = Song::List::fromJson(data);
-    // 更新UI
-});
+// ✅ 正确：在EventDispatcher中处理事件（switch路由）
+void EventDispatcher::dispatch(const AppEvent& ev) {
+    switch (ev.type) {
+        case EventType::EVENT_CATEGORY_DATA_READY:
+            CategoryService::instance().onDataReady(ev.arg1, ev.data);
+            break;
+        case EventType::EVENT_SEARCH_RESULT_READY:
+            SearchService::instance().onResultReady(ev.data);
+            break;
+        // ...
+    }
+}
 ```
+
+### 核心原则
+
+1. **事件只描述"发生了什么"**：不包含业务逻辑，不包含callback
+2. **Service决定"要不要走网络"**：业务判断、缓存策略都在Service层
+3. **EventDispatcher只做路由**：switch语句，没有业务逻辑
+4. **避免过度设计**：不使用EventBus、订阅系统、反射等
+
+**详细实现说明请参考**：[事件模型MVP实现指南（可落地版）.md](./guides/事件模型MVP实现指南（可落地版）.md)
 
 ---
 
@@ -836,8 +836,11 @@ enum class PlayerState {
 ## 📚 相关文档
 
 - **团队开发规范**：[团队开发规范v1.md](./团队开发规范v1.md)
-- **技术基座**：[KTVLV技术基座（F133_Tina）.md](./KTVLV技术基座（F133_Tina）.md)
+- **技术基座**：[KTVLV技术基座（F133_Tina）.md](./sdk/KTVLV技术基座（F133_Tina）.md)
 - **项目脚手架**：[项目脚手架结构.md](./项目脚手架结构.md)
+- **NetworkService实现**：[NetworkService与libcurl实现指南（MVP可落地版）.md](./guides/NetworkService与libcurl实现指南（MVP可落地版）.md) ⭐⭐⭐ **必读**
+- **事件模型实现**：[事件模型MVP实现指南（可落地版）.md](./guides/事件模型MVP实现指南（可落地版）.md) ⭐⭐⭐ **必读**
+- **事件架构规范**：[事件架构规范.md](./architecture/事件架构规范.md) ⭐⭐ **参考**
 
 ---
 
