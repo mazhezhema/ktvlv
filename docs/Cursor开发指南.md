@@ -30,16 +30,19 @@ We are implementing a KTVLV project (F133/Tina Linux) with the following archite
 - No malloc/free/new/delete in business code
 
 **Architecture:**
-- 4 threads: UI (main), PlayerThread (std::thread), Network (std::async), SDK internal thread
-- 2 message queues: PlayerCmdQueue (UI/Network -> PlayerThread), UiEventQueue (PlayerThread/Network -> UI)
-- Service layer: PlayerService, HttpService, WebSocketService, CacheService, etc. (all Singleton)
+- 4 threads: UI (main), PlayerThread (std::thread), NetworkWorker (std::thread), EventDispatcher (std::thread), SDK internal thread
+- 2 message queues: PlayerCmdQueue (UI/Network -> PlayerThread), EventQueue (Network/Player -> EventDispatcher -> Service)
+- Service layer: PlayerService, NetworkService, WebSocketService, CacheService, etc. (all Singleton)
+- Event system: EventQueue + EventDispatcher (MVP级简单模型，不使用EventBus/订阅系统)
 - Business layer: features/ (Search, Charts, Playlist, etc.) - Java/Web style development
 
 **Rules:**
 - Command Down / Event Up
 - UI never calls tplayer directly (use PlayerService)
-- tplayer callbacks push events to UiEventQueue, then UiDispatcher::post() to UI thread
-- std::queue + mutex inside services, no lock exposed to business layer
+- NetworkService: 异步Event驱动，所有网络请求结果通过EventQueue返回
+- EventDispatcher: 运行在Event Loop线程，使用switch路由，只有路由没有业务
+- tplayer callbacks push events to EventQueue, then EventDispatcher routes to Service
+- std::queue + mutex + condition_variable inside services, no lock exposed to business layer
 - No moodycamel, no boost, no raw pthread for business
 - No direct cross-thread widget updates
 - No new/delete/free/lv_obj_del in business code
@@ -51,8 +54,11 @@ We are implementing a KTVLV project (F133/Tina Linux) with the following archite
 - ❌ Creating controls in loops (use control pool)
 - ❌ Creating pages on each navigation (use Singleton + show()/hide())
 - ❌ Direct tplayer_* calls (use PlayerService)
-- ❌ curl_easy_* in business code (use HttpService)
+- ❌ curl_easy_* in business code (use NetworkService)
 - ❌ pthread_create in business code (use Service threads)
+- ❌ HttpService (use NetworkService instead, async Event-driven)
+- ❌ UiEventBus / EventBus (use EventQueue + EventDispatcher instead)
+- ❌ Event subscription system (use simple EventQueue + switch routing)
 
 **Patterns:**
 - Singleton pattern for all Services and Pages
@@ -66,29 +72,34 @@ We are implementing a KTVLV project (F133/Tina Linux) with the following archite
 ```
 We are implementing a concurrency architecture for an LVGL + tplayer project:
 
-- 4 threads: UI (main), PlayerThread (std::thread), Network (std::async), SDK internal thread.
+- 4 threads: UI (main), PlayerThread (std::thread), NetworkWorker (std::thread), EventDispatcher (std::thread), SDK internal thread.
 - 2 message queues only:
   1. PlayerCmdQueue : UI/Network -> PlayerThread (commands)
-  2. UiEventQueue   : SDK/PlayerThread/Network -> UI (events)
+  2. EventQueue     : Network/Player -> EventDispatcher -> Service (events)
 
 Rules:
 - Command Down, Event Up
-- UI never calls tplayer directly
-- tplayer callbacks always push events to UiEventQueue, then UiDispatcher::post() to return to UI thread
-- std::queue + mutex inside, no lock exposed to business layer
+- UI never calls tplayer directly (use PlayerService)
+- NetworkService: 异步Event驱动，所有网络请求结果通过EventQueue返回
+- EventDispatcher: 运行在Event Loop线程，使用switch路由，只有路由没有业务
+- tplayer callbacks push events to EventQueue, then EventDispatcher routes to Service
+- std::queue + mutex + condition_variable inside, no lock exposed to business layer
 - No moodycamel, no boost, no raw pthread for business
 - No direct cross-thread widget updates
 
 Implement:
 - PlayerCmdQueue { enqueue/can block, consumed by PlayerThread loop }
-- UiEventQueue { push/drain, consumed via UiDispatcher::post }
-- PlayerAdapter that translates commands to tplayer_*()
-- Translate SDK callbacks to PlayerEvent and push into UiEventQueue
+- EventQueue { enqueue/dequeue, consumed by EventDispatcher loop }
+- EventDispatcher { switch routing, routes to Service }
+- NetworkService { async requests, results via EventQueue }
+- PlayerService that translates commands to tplayer_*()
+- Translate SDK callbacks to AppEvent and push into EventQueue
 
 Primary patterns:
 - Single Consumer Queue
-- Event Driven
+- Event Driven (EventQueue + EventDispatcher)
 - Zero Shared State for business logic
+- MVP级简单模型（不使用EventBus/订阅系统）
 ```
 
 ---
@@ -97,40 +108,79 @@ Primary patterns:
 
 ### 2.1 Service 模板
 
-```cpp
-// ServiceName.h
-#pragma once
+#### 2.1.1 普通 Service 模板
 
-class ServiceName {
+```cpp
+// CategoryService.h
+#pragma once
+#include "event_queue.h"
+#include "event_types.h"
+#include "services/NetworkService.h"
+
+class CategoryService {
 public:
-    static ServiceName& instance();
+    static CategoryService& instance();
     
     // 初始化（只调用一次）
     void init();
     
-    // 业务接口
-    void doSomething();
+    // ========== EventDispatcher 路由入口 ==========
+    // EventDispatcher 的 switch 会调用这些方法
+    void onClick(int categoryId);
     
 private:
-    ServiceName() = default;
-    ~ServiceName() = default;
-    ServiceName(const ServiceName&) = delete;
-    ServiceName& operator=(const ServiceName&) = delete;
+    CategoryService() = default;
+    ~CategoryService() = default;
+    CategoryService(const CategoryService&) = delete;
+    CategoryService& operator=(const CategoryService&) = delete;
     
+    // 内部方法
+    void requestCategoryData(int categoryId);
+    void handleCategoryResponse(int categoryId, void* data);
+    
+private:
     bool m_initialized = false;
+    std::map<int, CategoryData> m_cache;
 };
 
-// ServiceName.cpp
-ServiceName& ServiceName::instance() {
-    static ServiceName inst;
+// CategoryService.cpp
+CategoryService& CategoryService::instance() {
+    static CategoryService inst;
     return inst;
 }
 
-void ServiceName::init() {
+void CategoryService::init() {
     if (m_initialized) return;
     // 初始化逻辑（只执行一次）
     m_initialized = true;
 }
+
+void CategoryService::onClick(int categoryId) {
+    // EventDispatcher 路由到这里
+    // Service 决定：是否走网络，是否用缓存
+    if (m_cache.find(categoryId) != m_cache.end()) {
+        // 缓存命中：直接发送事件
+        AppEvent ev;
+        ev.type = EventType::EVENT_CATEGORY_DATA_READY;
+        ev.arg1 = categoryId;
+        ev.data = &m_cache[categoryId];
+        EventQueue::instance().enqueue(ev);
+    } else {
+        // 缓存未命中：触发网络请求
+        NetworkService::instance().fetchCategory(categoryId);
+    }
+}
+```
+
+#### 2.1.2 NetworkService 模板（特殊）
+
+```cpp
+// NetworkService.h - 参见 NetworkService与libcurl实现指南（MVP可落地版）.md
+// 要点：
+// 1. Singleton，libcurl 只在这里用
+// 2. 异步请求，结果通过 EventQueue 返回
+// 3. libcurl 回调只收数据，不做业务
+// 4. 网络线程 → push event → Service 收结果 → UI 刷新
 ```
 
 ### 2.2 Page 模板
@@ -478,10 +528,12 @@ void PagePlayer::onPlayerEvent(const PlayerEvent& ev) {
 
 - **资源管理规范**：[资源管理规范v1.md](./资源管理规范v1.md)
 - **团队开发规范**：[团队开发规范v1.md](./团队开发规范v1.md)
-- **服务层API设计**：[服务层API设计文档.md](./服务层API设计文档.md)
-- **并发架构总结构（最终版）**: [并发架构总结构（最终版）.md](./architecture/并发架构总结构（最终版）.md)
-- **事件架构规范**: [事件架构规范.md](./architecture/事件架构规范.md)
-- **线程与消息队列架构设计总稿**: [线程与消息队列架构设计总稿.md](./architecture/线程与消息队列架构设计总稿.md)
+- **服务层API设计**：[服务层API设计文档.md](./服务层API设计文档.md) ⭐⭐⭐ **必读**
+- **应用层命名规范**：[应用层命名规范（架构约束版）.md](./guides/应用层命名规范（架构约束版）.md) ⭐⭐⭐ **必读**
+- **事件模型MVP实现**：[事件模型MVP实现指南（可落地版）.md](./guides/事件模型MVP实现指南（可落地版）.md) ⭐⭐⭐ **必读**
+- **NetworkService实现**：[NetworkService与libcurl实现指南（MVP可落地版）.md](./guides/NetworkService与libcurl实现指南（MVP可落地版）.md) ⭐⭐⭐ **必读**
+- **并发架构总结构（最终版）**: [并发架构总结构（最终版）.md](./architecture/并发架构总结构（最终版）.md) ⭐⭐⭐ **必读**
+- **事件架构规范**: [事件架构规范.md](./architecture/事件架构规范.md) ⭐⭐ **参考**
 
 ---
 
