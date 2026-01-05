@@ -837,7 +837,7 @@ enum class PlayerState {
 
 - **团队开发规范**：[团队开发规范v1.md](./团队开发规范v1.md)
 - **技术基座**：[KTVLV技术基座（F133_Tina）.md](./sdk/KTVLV技术基座（F133_Tina）.md)
-- **项目脚手架**：[项目脚手架结构.md](./项目脚手架结构.md)
+- **代码目录结构**：[代码目录结构等于模块责任结构（定版）.md](./guides/代码目录结构等于模块责任结构（定版）.md)
 - **NetworkService实现**：[NetworkService与libcurl实现指南（MVP可落地版）.md](./guides/NetworkService与libcurl实现指南（MVP可落地版）.md) ⭐⭐⭐ **必读**
 - **事件模型实现**：[事件模型MVP实现指南（可落地版）.md](./guides/事件模型MVP实现指南（可落地版）.md) ⭐⭐⭐ **必读**
 - **事件架构规范**：[事件架构规范.md](./architecture/事件架构规范.md) ⭐⭐ **参考**
