@@ -7,23 +7,22 @@
 namespace ktv::services {
 
 /**
- * 历史记录项（兼容旧 API）
+ * 历史记录项（业务层使用）
  */
 struct HistoryItem {
     std::string title;
     std::string artist;
     std::string local_path;
-    std::string song_id;  // 新增：歌曲ID（用于 SQLite）
+    std::string song_id;
 };
 
 /**
- * HistoryService - 历史记录服务（使用 SQLite）
+ * HistoryService - 历史记录服务
  * 
  * 设计原则：
  * - Singleton 模式
- * - 内部使用 HistoryDbService 进行持久化
- * - 保持现有 API 不变（兼容性）
- * - 业务层无锁（HistoryDbService 内部处理）
+ * - 内部使用 HistoryDbService（SqliteHelper）
+ * - 返回值表示状态（0 成功，<0 失败）
  */
 class HistoryService {
 public:
@@ -37,11 +36,11 @@ public:
     
     /**
      * 初始化服务
-     * @param db_path 数据库文件路径（如 "/data/ktv_history.db"）
+     * @param db_path 数据库文件路径
      * @param max_count 最大记录数（默认 50）
-     * @return true 成功，false 失败
+     * @return 0 成功；<0 失败
      */
-    bool initialize(const std::string& db_path = "/data/ktv_history.db", int max_count = 50);
+    int initialize(const std::string& db_path = "/data/ktv_history.db", int max_count = 50);
     
     /**
      * 关闭服务
@@ -49,34 +48,42 @@ public:
     void shutdown();
     
     /**
-     * 设置容量（兼容旧 API）
+     * 设置容量
      * @param cap 最大记录数
      */
     void setCapacity(size_t cap);
     
     /**
-     * 添加历史记录（兼容旧 API）
+     * 添加历史记录
      * @param item 历史记录项
+     * @return 0 成功；<0 失败
      */
-    void add(const HistoryItem& item);
+    int add(const HistoryItem& item);
     
     /**
-     * 获取历史记录列表（兼容旧 API）
-     * @return 历史记录列表
+     * 获取历史记录列表
+     * @param out_items 输出：历史记录列表
+     * @return 0 成功；<0 失败
      */
-    std::vector<HistoryItem> items() const;
+    int getItems(std::vector<HistoryItem>& out_items) const;
     
     /**
      * 清空所有历史记录
-     * @return true 成功，false 失败
+     * @return 0 成功；<0 失败
      */
-    bool clear();
+    int clear();
     
     /**
      * 获取记录总数
-     * @return 记录总数
+     * @param out_count 输出：记录总数
+     * @return 0 成功；<0 失败
      */
-    int getCount() const;
+    int getCount(int& out_count) const;
+    
+    /**
+     * 检查是否已初始化
+     */
+    bool isInitialized() const { return initialized_; }
 
 private:
     HistoryService() = default;
@@ -89,4 +96,3 @@ private:
 }  // namespace ktv::services
 
 #endif  // KTVLV_SERVICES_HISTORY_SERVICE_H
-

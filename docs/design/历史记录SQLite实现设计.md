@@ -50,9 +50,9 @@
 ### 1.2 核心设计原则
 
 1. **Singleton 模式**：HistoryDbService 单例
-2. **50/100 条上限**：每次插入后立即裁剪
-3. **单 DB 线程**：通过消息队列，符合业务线程模型
-4. **Prepared Statement**：使用 prepared statement，避免 SQL 注入
+2. **使用 SqliteHelper**：进程唯一 DB，统一入口
+3. **50/100 条上限**：每次插入后立即裁剪
+4. **返回值表示状态**：所有函数返回 `int`（0 成功，<0 失败）
 5. **WAL 模式**：轻量级配置，性能足够
 6. **极简设计**：避免过度封装，不搞 ORM
 
@@ -327,8 +327,8 @@ COMMIT;
 ### 5.1 初始化流程
 
 ```cpp
-// 应用启动时
-bool initHistoryDb() {
+// 应用启动时（返回 0 成功，<0 失败）
+int initHistoryDb() {
     return HistoryDbService::instance().initialize(
         "/data/ktv_history.db",  // 数据库路径
         50  // 最大记录数
@@ -339,13 +339,13 @@ bool initHistoryDb() {
 ### 5.2 添加记录流程
 
 ```cpp
-// 播放结束时
-void onSongFinished(const std::string& song_id, 
-                    const std::string& song_name,
-                    const std::string& artist,
-                    const std::string& local_path) {
+// 播放结束时（返回 0 成功，<0 失败）
+int onSongFinished(const std::string& song_id, 
+                   const std::string& song_name,
+                   const std::string& artist,
+                   const std::string& local_path) {
     // 在业务线程中调用
-    HistoryDbService::instance().addRecord(
+    return HistoryDbService::instance().addRecord(
         song_id, song_name, artist, local_path
     );
 }
@@ -355,12 +355,15 @@ void onSongFinished(const std::string& song_id,
 
 ```cpp
 // UI 线程需要显示历史记录时
-void loadHistoryList() {
+int loadHistoryList() {
     // 在业务线程中查询
-    auto items = HistoryDbService::instance().getHistoryList(50);
+    std::vector<HistoryDbItem> items;
+    int ret = HistoryDbService::instance().getHistoryList(items, 50);
+    if (ret != 0) return ret;
     
     // 通过消息队列发送到 UI 线程
     UiEventQueue::push(HistoryListEvent{items});
+    return 0;
 }
 ```
 
