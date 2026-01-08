@@ -199,13 +199,13 @@ bool SongService::parseSongList(const char* json_str, size_t len,
         cJSON* item = cJSON_GetArrayItem(items, i);
         Song& song = out->songs[i];
         
-        // 使用 JsonHelper 安全读取
-        if (!JsonHelper::getString(item, "song_id", song.id, sizeof(song.id))) {
+        // 使用 JsonHelper 安全读取（返回 Status(int)，0 成功，<0 失败）
+        if (JsonHelper::GetString(item, "song_id", song.id, sizeof(song.id)) != 0) {
             continue;  // 关键字段缺失，跳过这条
         }
-        JsonHelper::getString(item, "song_name", song.title, sizeof(song.title));
-        JsonHelper::getString(item, "artist", song.artist, sizeof(song.artist));
-        JsonHelper::getString(item, "m3u8_url", song.url, sizeof(song.url));
+        (void)JsonHelper::GetString(item, "song_name", song.title, sizeof(song.title));
+        (void)JsonHelper::GetString(item, "artist", song.artist, sizeof(song.artist));
+        (void)JsonHelper::GetString(item, "m3u8_url", song.url, sizeof(song.url));
         
         out->count++;
     }
@@ -321,12 +321,14 @@ void HomePage::onEvent(const SongListEvent& event) {
 // 在 json_helper.h 中定义
 #define MAX_JSON_SIZE (64 * 1024)  // 64KB 上限
 
-bool JsonHelper::parse(const char* str, size_t len, cJSON** out) {
+// 返回值统一为 Status(int)：0 成功，<0 失败
+int JsonHelper::Parse(const char* str, size_t len, ktv::utils::JsonDocument* out_doc) {
     if (len > MAX_JSON_SIZE) {
         LOG_ERROR("JSON size exceeds limit: %zu > %d", len, MAX_JSON_SIZE);
-        return false;
+        return -2;
     }
     // ...
+    return 0;
 }
 ```
 
@@ -518,45 +520,38 @@ JsonHelper 就是**拦截器**。
 
 bool SongService::parseSongList(const char* json_str, size_t len, 
                                  SongList* out) {
-    // 1. 使用 JsonHelper 解析
-    cJSON* root = JsonHelper::parse(json_str, len);
-    if (!root) {
+    // 1. 使用 JsonHelper 解析（返回 Status(int)）
+    ktv::utils::JsonDocument doc;
+    if (JsonHelper::Parse(json_str, len, &doc) != 0) {
         return false;
     }
-    
-    // 2. 获取数组
-    cJSON* items = JsonHelper::getObjectItem(root, "items");
-    if (!items || !cJSON_IsArray(items)) {
-        cJSON_Delete(root);
+
+    // 2. 获取数组大小（只做值级访问）
+    const cJSON* root = doc.root();
+    const cJSON* items = cJSON_GetObjectItem(root, "items");
+    ktv::utils::OutInt count;
+    if (!items || JsonHelper::GetArraySize(items, &count) != 0) {
         return false;
     }
-    
-    // 3. 遍历数组（只取需要的字段）
-    int count = JsonHelper::getArraySize(items);
     out->count = 0;
     
-    for (int i = 0; i < count && i < MAX_SONGS; ++i) {
-        cJSON* item = JsonHelper::getArrayItem(items, i);
-        if (!item) continue;
+    for (int i = 0; i < count.value && i < MAX_SONGS; ++i) {
         
         Song& song = out->songs[out->count];
         
         // 关键字段必须存在
-        if (!JsonHelper::getString(item, "song_id", song.id, sizeof(song.id))) {
+        if (JsonHelper::GetArrayObjectString(root, "items", i, "song_id", song.id, sizeof(song.id)) != 0) {
             continue;  // 跳过这条
         }
         
         // 可选字段
-        JsonHelper::getString(item, "song_name", song.title, sizeof(song.title));
-        JsonHelper::getString(item, "artist", song.artist, sizeof(song.artist));
-        JsonHelper::getString(item, "m3u8_url", song.url, sizeof(song.url));
+        (void)JsonHelper::GetArrayObjectString(root, "items", i, "song_name", song.title, sizeof(song.title));
+        (void)JsonHelper::GetArrayObjectString(root, "items", i, "artist", song.artist, sizeof(song.artist));
+        (void)JsonHelper::GetArrayObjectString(root, "items", i, "m3u8_url", song.url, sizeof(song.url));
         
         out->count++;
     }
-    
-    // 4. 立即释放
-    cJSON_Delete(root);
-    
+
     return out->count > 0;
 }
 ```

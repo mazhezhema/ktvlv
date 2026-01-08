@@ -128,7 +128,7 @@ private:
 | `fetch()` | `HttpService::get()` / `post()` | HTTP 请求，封装 libcurl |
 | `WebSocket` | `WebSocketService` (Singleton) | WebSocket 客户端，封装 libwebsockets |
 | `localStorage` | `CacheService` (Singleton) | 本地存储，使用 inih |
-| `JSON.parse()` | `JsonHelper::parse()` | JSON 解析，封装 cJSON |
+| `JSON.parse()` | `JsonHelper::Parse()` | JSON 解析（返回 Status(int)），封装 cJSON |
 | `Promise` | `std::async` (框架层) | 异步任务，框架层封装 |
 | `EventEmitter` | `UiEventBus` (Singleton) | 事件总线，跨模块通信 |
 
@@ -164,7 +164,9 @@ public:
         HttpService::instance().get("/api/songs/search?q=test", 
             [this](const HttpResponse& res) {
                 SongList list;
-                if (JsonHelper::parse(res.body, &list)) {
+                ktv::utils::JsonDocument doc;
+                if (JsonHelper::Parse(res.body, strlen(res.body), &doc) == 0) {
+                    // 从 doc.root() 取字段，填充 list，再 update UI
                     this->update(list);  // 更新 UI
                 }
             });
@@ -198,7 +200,7 @@ private:
 | `list` | `std::array` (固定大小) | 列表，使用固定大小数组 |
 | `requests.get()` | `HttpService::get()` | HTTP 请求，封装 libcurl |
 | `websocket` | `WebSocketService` (Singleton) | WebSocket 客户端，封装 libwebsockets |
-| `json.loads()` | `JsonHelper::parse()` | JSON 解析，封装 cJSON |
+| `json.loads()` | `JsonHelper::Parse()` | JSON 解析（返回 Status(int)），封装 cJSON |
 | `threading.Thread` | `std::thread` (框架层) | 线程，框架层封装 |
 | `queue.Queue` | `std::queue + std::mutex` (框架层) | 队列，框架层封装 |
 | `@singleton` | `static instance()` | 单例模式，使用 `instance()` 方法 |
@@ -230,7 +232,8 @@ public:
         std::string url = "/api/songs/search?q=" + query;
         HttpService::instance().get(url, [this](const HttpResponse& res) {
             SongList list;
-            if (JsonHelper::parse(res.body, &list)) {
+            ktv::utils::JsonDocument doc;
+            if (JsonHelper::Parse(res.body, strlen(res.body), &doc) == 0) {
                 this->update(list);  // 更新 UI
             }
         });
@@ -554,7 +557,8 @@ public:
             [this](const HttpResponse& res) {
                 // 回调在 UI 线程，直接更新（无锁）
                 SongList list;
-                if (JsonHelper::parse(res.body, &list)) {
+                ktv::utils::JsonDocument doc;
+                if (JsonHelper::Parse(res.body, strlen(res.body), &doc) == 0) {
                     this->update(list);
                 }
             });
@@ -639,7 +643,8 @@ if (!parseJson(json, &list)) {
 }
 
 // ✅ 正确：错误信息包含上下文
-if (!JsonHelper::parse(json, &list)) {
+ktv::utils::JsonDocument doc;
+if (JsonHelper::Parse(json, strlen(json), &doc) != 0) {
     syslog(LOG_ERR, "[ktv][search][json_fail] query=%s json_len=%zu", 
         query.c_str(), json.size());
     setStatus("解析失败，请重试");
@@ -854,7 +859,7 @@ We are implementing a KTVLV project (F133/Tina Linux) with the following archite
 - show()/hide() for page navigation
 - update() for data refresh (don't recreate controls)
 - Java/Web style: HttpService::instance().get() like Retrofit/axios
-- Python style: JsonHelper::parse() like json.loads()
+- Python style: JsonHelper::Parse() like json.loads()
 ```
 
 ### 11.2 Cursor AI 使用技巧
@@ -927,6 +932,7 @@ We are implementing a KTVLV project (F133/Tina Linux) with the following archite
 
 **最后更新**: 2025-12-30  
 **状态**: ✅ 核心文档，Android/Web/Python 背景工程师 C++ 开发指南
+
 
 
 

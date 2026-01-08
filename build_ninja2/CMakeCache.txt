@@ -422,6 +422,12 @@ PLOG_INSTALL:BOOL=OFF
 //The directory containing a CMake configuration file for SDL2.
 SDL2_DIR:PATH=D:/vcpkg/installed/x64-windows/share/sdl2
 
+//Path to a file.
+SQLite3_INCLUDE_DIR:PATH=SQLite3_INCLUDE_DIR-NOTFOUND
+
+//Path to a library.
+SQLite3_LIBRARY:FILEPATH=SQLite3_LIBRARY-NOTFOUND
+
 //Automatically copy dependencies into the output directory for
 // executables.
 VCPKG_APPLOCAL_DEPS:BOOL=ON
@@ -658,7 +664,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_MT
 CMAKE_MT-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=8
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=6
 //Platform information initialized
 CMAKE_PLATFORM_INFO_INITIALIZED:INTERNAL=1
 //noop for ranlib
@@ -782,6 +788,10 @@ PKG_WAYLAND_STATIC_LIBS_L:INTERNAL=
 PKG_WAYLAND_STATIC_LIBS_OTHER:INTERNAL=
 PKG_WAYLAND_STATIC_LIBS_PATHS:INTERNAL=
 PKG_WAYLAND_VERSION:INTERNAL=
+//ADVANCED property for variable: SQLite3_INCLUDE_DIR
+SQLite3_INCLUDE_DIR-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: SQLite3_LIBRARY
+SQLite3_LIBRARY-ADVANCED:INTERNAL=1
 //Install the dependencies listed in your manifest:
 //\n    If this is off, you will have to manually install your dependencies.
 //\n    See https://github.com/microsoft/vcpkg/tree/master/docs/specifications/manifests.md

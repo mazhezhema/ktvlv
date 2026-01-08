@@ -145,17 +145,20 @@
 
 | 线程 | 职责 | 为什么必须存在 | 不能做什么 |
 |------|------|---------------|-----------|
-| **UI 主线程** | LVGL 渲染、控件逻辑、UI更新 | UI 必须单线程 | ❌ 不能跨线程更新UI，❌ 不能直接调tplayer |
-| **播放器线程（std::thread）** | 串行执行所有播放器命令 | 保证 tplayer 状态一致性 | ❌ 不能做业务逻辑，❌ 不能更新UI |
-| **网络线程（std::async）** | HTTP请求 & JSON解析 | 避免阻塞UI | ❌ 不能直接更新UI |
-| **SDK内部线程（tplayer线程）** | 来自SDK的回调 | 我们无法控制来源 | ❌ 不能直接触UI、不能直接触业务状态 |
+| **UI 主线程** | LVGL 渲染、控件逻辑、Controller/Service 编排、同步网络请求、同步SQLite | UI 必须单线程 | ❌ 不能跨线程更新UI |
+| **下载线程** | m3u8/ts 下载（串行） | 避免长时间下载阻塞UI | ❌ 不能直接更新UI，❌ 不能操作播放器 |
+| **播放器内部线程（tplayer线程）** | 播放状态回调（tplayer 黑盒） | SDK内部自然存在 | ❌ 不能直接触UI、不能直接触业务状态 |
 
-### 消息队列表
+### 消息队列表（MVP简化版：1个队列）
 
 | 队列 | 流向 | 谁写 → 谁读 | 实现方式 | 作用 |
 |------|------|-----------|---------|------|
-| **PlayerCmdQueue** | UI/业务 → 播放器 | UI & 网络 → PlayerThread | `std::queue + mutex` | 串行化所有播放器操作 |
-| **UiEventQueue** | 播放器/网络/SDK → UI | PlayerThread & 网络 → UI线程 | `std::queue + mutex` | 把后台事件回主线程更新UI |
+| **UiEventQueue** | 下载线程/播放器 → UI | DownloadThread & tplayer → UI线程 | `std::queue + mutex` | 把后台事件回主线程更新UI |
+
+📌 **MVP简化说明**：
+- ❌ **无PlayerCmdQueue**：UI → 播放器命令通过 `PlayerService` 直接封装调用（主线程同步）
+- ❌ **无网络线程**：普通网络请求在主线程同步执行（libcurl同步调用）
+- ✅ **仅保留UiEventQueue**：用于下载线程和播放器回调 → UI主线程的异步通信
 
 ### 世界观
 
@@ -179,14 +182,16 @@
 
 ## 🧠 最佳实践（工程交付面必须遵守）
 
-### 🔐 并发模型
+### 🔐 并发模型（MVP简化版）
 
-- ✅ UI = **唯一可修改界面的线程**
-- ✅ PlayerThread = **唯一能调用 tplayer 的线程**
-- ✅ SDK thread = **事件桥**（**禁止触 UI**）
+- ✅ UI主线程 = **唯一可修改界面的线程**
+- ✅ UI主线程 = **可调用 tplayer（通过PlayerService封装）**
+- ✅ 下载线程 = **只负责m3u8/ts下载，通过UiEventQueue通信**
+- ✅ 播放器内部线程 = **事件桥（tplayer回调 → UiEventQueue）**
 - ❌ 禁止锁嵌套
-- ❌ 禁止多队列乱飞
+- ❌ 禁止多队列乱飞（仅1个UiEventQueue）
 - ❌ 禁止状态交叉
+- ✅ **普通网络请求/SQLite = 主线程同步执行**
 
 ### 📁 路径规则
 

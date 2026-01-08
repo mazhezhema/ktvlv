@@ -232,8 +232,21 @@
   - ❌ 错误：在 UI 回调中 `cJSON_Parse()`
 
 - [ ] 是否使用 `JsonHelper` 封装？
-  - ✅ 必须使用 `JsonHelper::parse()` 和 `JsonHelper::getString()` 等
+  - ✅ 必须使用 `JsonHelper::Parse()` 和 `JsonHelper::GetString()` 等
   - ❌ 禁止直接调用 `cJSON_Parse()` 等原始 API
+
+- [ ] **JsonHelper 是否保持“值级 API”边界？（一票否决）**
+  - ✅ 只允许：`Parse/GetString/GetInt/GetLong/GetDouble/GetBool/GetArraySize/GetArrayObjectXxx`
+  - ❌ 发现即驳回：任何“节点/结构暴露”倾向（返回子节点、遍历、类型探测 API）
+  - ❌ 发现即驳回：业务代码出现 `cJSON_GetObjectItem/cJSON_GetArrayItem/cJSON_Is*`（说明 Helper 失效或被绕开）
+
+---
+
+## 🧱 接口签名规范（硬规则，一票否决）
+
+- [ ] **基础类型参数禁止 `*` / `&`**（`int/bool/double/size_t/uint32_t/uint64_t...`）
+  - ❌ 发现即驳回：`int* out_xxx` / `bool& out_xxx` / `double* out_xxx` 等
+  - ✅ 正确做法：基础类型输入按值；输出使用 `ktv::utils::OutValue<T>*`（如 `OutInt* / OutBool*`）
 
 - [ ] `JsonHelper` 是否在正确的层调用？
   - ✅ 允许：Network 层、Service 层（JSON解析）

@@ -132,6 +132,7 @@ endif()
 target_compile_definitions(ktvlv PRIVATE
   LV_CONF_INCLUDE_SIMPLE
   LV_LVGL_H_INCLUDE_SIMPLE
+  KTV_ENABLE_LOG_UPLOAD=0
 )
 
 # MSVC 源码统一按 UTF-8 编译，避免中文字符串编码问题

@@ -1,34 +1,49 @@
 #include "song_service.h"
 #include "http_service.h"
-#include "cJSON.h"
+#include "utils/json_helper.h"
 #include <syslog.h>
 
 namespace ktv::services {
 
+static bool is_ok_or_truncated(int ret) {
+    // JsonHelper::GetString 可能返回 -5 表示 BufferTooSmall（截断），这在业务上可接受
+    return (ret == 0 || ret == -5);
+}
+
 static void parse_song_array(const char* json_str, std::vector<SongItem>& out) {
-    cJSON* root = cJSON_Parse(json_str);
-    if (!root || !cJSON_IsArray(root)) {
-        if (root) cJSON_Delete(root);
-        return;
-    }
-    int n = cJSON_GetArraySize(root);
-    for (int i = 0; i < n; ++i) {
-        cJSON* item = cJSON_GetArrayItem(root, i);
-        if (!item) continue;
+    if (!json_str) return;
+
+    ktv::utils::JsonDocument doc;
+    int ret = JsonHelper::Parse(json_str, strlen(json_str), &doc);
+    if (ret != 0) return;
+
+    const cJSON* root = doc.root();
+    ktv::utils::OutInt count;
+    ret = JsonHelper::GetArraySize(root, &count);
+    if (ret != 0) return;
+
+    for (int i = 0; i < count.value; ++i) {
         SongItem s;
-        cJSON* id = cJSON_GetObjectItem(item, "song_id");
-        cJSON* title = cJSON_GetObjectItem(item, "song_name");
-        cJSON* artist = cJSON_GetObjectItem(item, "artist");
-        cJSON* url = cJSON_GetObjectItem(item, "m3u8_url");
-        if (id && cJSON_IsString(id)) s.id = id->valuestring;
-        if (title && cJSON_IsString(title)) s.title = title->valuestring;
-        if (artist && cJSON_IsString(artist)) s.artist = artist->valuestring;
-        if (url && cJSON_IsString(url)) s.m3u8_url = url->valuestring;
+
+        char song_id[128]{0};
+        char song_name[256]{0};
+        char artist[256]{0};
+        char m3u8_url[512]{0};
+
+        int r_id = JsonHelper::GetRootArrayObjectString(root, i, "song_id", song_id, sizeof(song_id));
+        int r_name = JsonHelper::GetRootArrayObjectString(root, i, "song_name", song_name, sizeof(song_name));
+        int r_artist = JsonHelper::GetRootArrayObjectString(root, i, "artist", artist, sizeof(artist));
+        int r_url = JsonHelper::GetRootArrayObjectString(root, i, "m3u8_url", m3u8_url, sizeof(m3u8_url));
+
+        if (is_ok_or_truncated(r_id)) s.id = song_id;
+        if (is_ok_or_truncated(r_name)) s.title = song_name;
+        if (is_ok_or_truncated(r_artist)) s.artist = artist;
+        if (is_ok_or_truncated(r_url)) s.m3u8_url = m3u8_url;
+
         // fallback: if no song_id, use title as id
         if (s.id.empty()) s.id = s.title;
         if (!s.title.empty()) out.push_back(std::move(s));
     }
-    cJSON_Delete(root);
 }
 
 std::vector<SongItem> SongService::listSongs(int page, int size) {

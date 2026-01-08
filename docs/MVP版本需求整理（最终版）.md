@@ -35,7 +35,7 @@
 - ✅ **历史记录** - 自动记录最近播放的50首歌曲（FIFO队列，持久化存储）
 - ✅ **VIP会员功能** - 会员状态显示、VIP歌曲标识、会员权益展示
 - ✅ **微信扫码点歌** - 扫码功能（通过微信扫码进行点歌或激活）
-- ✅ **WebSocket长连接** - 实时接收服务器推送（点歌、切歌等）
+<!-- 非MVP：WebSocket长连接（后续评估） -->
 
 ---
 
@@ -84,7 +84,7 @@
 | 2 | **libcurl** | 最新 | HTTP客户端 | 系统包管理器或交叉编译 | ✅ 必需 |
 | 3 | **cJSON** | 最新 | JSON解析 | FetchContent | ✅ 必需 |
 | 4 | **std::queue + std::mutex** | C++17标准库 | 消息队列 | 标准库 | ✅ 必需 |
-| 5 | **libwebsockets** | 最新 | WebSocket长连接 | 系统包管理器或交叉编译 | ✅ 必需 |
+<!-- 非MVP：libwebsockets（后续评估） -->
 | 6 | **syslog** | 系统自带 | 日志系统（F133平台） | 系统自带 | ✅ 必需（F133） |
 | 8 | **inih** | 最新 | 配置解析 | FetchContent | ✅ 可选 |
 
@@ -106,23 +106,21 @@
 
 ---
 
-## 🧵 线程架构（4线程+2队列）
+## 🧵 线程架构（MVP简化）
 
 ### 线程模型
 
 | 线程 | 职责 | 交互方式 |
 |------|------|---------|
-| **UI主线程** | LVGL渲染、控件逻辑、UI更新 | 消费 UiEventQueue |
-| **输入线程** | 读取触摸/按键事件 | 生产 → UiEventQueue |
-| **业务线程** | HTTP请求、JSON解析 | 生产 → UiEventQueue |
-| **播放器线程** | 串行执行播放命令 | 消费 PlayerCmdQueue，生产 → UiEventQueue |
+| **UI主线程** | LVGL渲染、控件逻辑、Controller/Service编排 | 消费 UiEventQueue |
+| **下载线程** | m3u8/ts 下载（串行） | 生产 → UiEventQueue |
+| **播放器内部线程** | 播放状态回调（tplayer 黑盒） | 生产 → UiEventQueue |
 
 ### 消息队列
 
 | 队列 | 流向 | 实现 |
 |------|------|------|
-| **PlayerCmdQueue** | UI/业务 → 播放器 | std::queue + std::mutex |
-| **UiEventQueue** | 输入/业务/播放器 → UI | std::queue + std::mutex |
+| **UiEventQueue** | 下载线程/播放器 → UI | std::queue + std::mutex |
 
 > **详细说明**：详见 [线程架构基线（最终版）.md](./线程架构基线（最终版）.md) 和 [消息队列实现与最佳实践.md](./消息队列实现与最佳实践.md)
 
@@ -203,7 +201,7 @@
 - **线程架构基线**: [线程架构基线（最终版）.md](./线程架构基线（最终版）.md)
 - **消息队列实现**: [消息队列实现与最佳实践.md](./消息队列实现与最佳实践.md)
 - **VIP会员功能设计**: [VIP会员与微信扫码功能设计.md](./VIP会员与微信扫码功能设计.md)
-- **WebSocket实现方案**: [WebSocket长连接实现方案.md](./WebSocket长连接实现方案.md)
+<!-- 非MVP：WebSocket实现方案（后续评估） -->
 - **F133移植方案**: [F133_KTV移植方案总结.md](./guides/F133_KTV移植方案总结.md)
 
 ---
@@ -219,7 +217,7 @@
 - ✅ 历史记录（最多50首）
 - ✅ VIP会员功能（会员状态、VIP歌曲标识）
 - ✅ 微信扫码点歌（扫码激活、扫码点歌）
-- ✅ WebSocket长连接（实时推送）
+<!-- 非MVP：WebSocket长连接（后续评估） -->
 
 **不包含**：
 - ❌ 我的收藏

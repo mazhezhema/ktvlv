@@ -648,3 +648,4 @@ Adapter    →  只能调用 SDK（libcurl、sqlite、tplayer）
 **状态**: ✅ 执行规范（PM必读）  
 **维护者**: Tech Product Owner
 
+

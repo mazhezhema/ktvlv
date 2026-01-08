@@ -665,3 +665,4 @@ void EventDispatcher::dispatch(const AppEvent& ev) {
 **维护者**: 项目团队  
 **状态**: ✅ 核心文档（MVP 可落地版）
 
+

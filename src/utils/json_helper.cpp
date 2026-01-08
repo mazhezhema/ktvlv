@@ -4,150 +4,227 @@
 #include <string.h>
 #include <stdio.h>
 
+using ktv::utils::JsonDocument;
 
-cJSON* JsonHelper::parse(const char* str, size_t len) {
+int JsonHelper::Parse(const char* str, size_t len, JsonDocument* out_doc) {
+    if (!out_doc) return -1;
+    out_doc->Reset();
+
     if (!str || len == 0) {
         // LOG_ERROR("Invalid JSON input");
-        return nullptr;
+        return -1;
     }
-    
+
     if (len > MAX_JSON_SIZE) {
         // LOG_ERROR("JSON size exceeds limit: %zu > %d", len, MAX_JSON_SIZE);
-        return nullptr;
+        return -2;
     }
-    
+
     cJSON* root = cJSON_ParseWithLength(str, len);
     if (!root) {
         const char* error = cJSON_GetErrorPtr();
         // LOG_ERROR("JSON parse failed: %s", error ? error : "unknown");
         (void)error;  // 避免未使用警告
+        return -6;
     }
-    
-    return root;
+
+    out_doc->root_ = root;
+    return 0;
 }
 
-bool JsonHelper::getString(cJSON* obj, const char* key, 
-                            char* out, size_t out_len) {
+int JsonHelper::GetString(const cJSON* obj, const char* key,
+                          char* out, size_t out_len) {
     if (!obj || !key || !out || out_len == 0) {
-        return false;
+        return -1;
     }
     
-    cJSON* item = cJSON_GetObjectItem(obj, key);
-    if (!item || !cJSON_IsString(item)) {
-        return false;
-    }
-    
+    const cJSON* item = cJSON_GetObjectItem(obj, key);
+    if (!item) return -3;
+    if (!cJSON_IsString(item)) return -4;
+
     const char* val = cJSON_GetStringValue(item);
-    if (!val) {
-        return false;
-    }
-    
+    if (!val) return -4;
+
     size_t val_len = strlen(val);
+    int ret = 0;
     if (val_len >= out_len) {
         // LOG_WARNING("String truncated: %s (len=%zu, max=%zu)", key, val_len, out_len - 1);
         val_len = out_len - 1;
+        ret = -5; // BufferTooSmall
     }
     
     memcpy(out, val, val_len);
     out[val_len] = '\0';
     
-    return true;
+    return ret;
 }
 
-bool JsonHelper::getInt(cJSON* obj, const char* key, int* out) {
-    if (!obj || !key || !out) {
-        return false;
+int JsonHelper::GetInt(const cJSON* obj, const char* key, ktv::utils::OutInt* out_value) {
+    if (!obj || !key || !out_value) {
+        return -1;
     }
     
-    cJSON* item = cJSON_GetObjectItem(obj, key);
-    if (!item || !cJSON_IsNumber(item)) {
-        return false;
-    }
-    
-    *out = (int)cJSON_GetNumberValue(item);
-    return true;
+    const cJSON* item = cJSON_GetObjectItem(obj, key);
+    if (!item) return -3;
+    if (!cJSON_IsNumber(item)) return -4;
+
+    out_value->value = (int)cJSON_GetNumberValue(item);
+    return 0;
 }
 
-bool JsonHelper::getLong(cJSON* obj, const char* key, long* out) {
-    if (!obj || !key || !out) {
-        return false;
+int JsonHelper::GetLong(const cJSON* obj, const char* key, ktv::utils::OutLong* out_value) {
+    if (!obj || !key || !out_value) {
+        return -1;
     }
     
-    cJSON* item = cJSON_GetObjectItem(obj, key);
-    if (!item || !cJSON_IsNumber(item)) {
-        return false;
+    const cJSON* item = cJSON_GetObjectItem(obj, key);
+    if (!item) return -3;
+    if (!cJSON_IsNumber(item)) return -4;
+
+    out_value->value = (long)cJSON_GetNumberValue(item);
+    return 0;
+}
+
+int JsonHelper::GetDouble(const cJSON* obj, const char* key, ktv::utils::OutDouble* out_value) {
+    if (!obj || !key || !out_value) {
+        return -1;
     }
     
-    *out = (long)cJSON_GetNumberValue(item);
-    return true;
+    const cJSON* item = cJSON_GetObjectItem(obj, key);
+    if (!item) return -3;
+    if (!cJSON_IsNumber(item)) return -4;
+
+    out_value->value = cJSON_GetNumberValue(item);
+    return 0;
 }
 
-bool JsonHelper::getDouble(cJSON* obj, const char* key, double* out) {
-    if (!obj || !key || !out) {
-        return false;
+int JsonHelper::GetBool(const cJSON* obj, const char* key, ktv::utils::OutBool* out_value) {
+    if (!obj || !key || !out_value) {
+        return -1;
     }
     
-    cJSON* item = cJSON_GetObjectItem(obj, key);
-    if (!item || !cJSON_IsNumber(item)) {
-        return false;
-    }
-    
-    *out = cJSON_GetNumberValue(item);
-    return true;
+    const cJSON* item = cJSON_GetObjectItem(obj, key);
+    if (!item) return -3;
+    if (!cJSON_IsBool(item)) return -4;
+
+    out_value->value = (cJSON_IsTrue(item) != 0);
+    return 0;
 }
 
-bool JsonHelper::getBool(cJSON* obj, const char* key, bool* out) {
-    if (!obj || !key || !out) {
-        return false;
-    }
-    
-    cJSON* item = cJSON_GetObjectItem(obj, key);
-    if (!item || !cJSON_IsBool(item)) {
-        return false;
-    }
-    
-    *out = cJSON_IsTrue(item) != 0;
-    return true;
+int JsonHelper::GetArraySize(const cJSON* arr, ktv::utils::OutInt* out_size) {
+    if (!arr || !out_size) return -1;
+    if (!cJSON_IsArray(arr)) return -4;
+    out_size->value = cJSON_GetArraySize(arr);
+    return 0;
 }
 
-int JsonHelper::getArraySize(cJSON* arr) {
-    if (!arr || !cJSON_IsArray(arr)) {
-        return 0;
-    }
-    
-    return cJSON_GetArraySize(arr);
+int JsonHelper::GetObjectArraySize(const cJSON* root, const char* array_key, ktv::utils::OutInt* out_size) {
+    if (!root || !array_key || !out_size) return -1;
+
+    const cJSON* arr = cJSON_GetObjectItem(root, array_key);
+    if (!arr) return -3;
+    if (!cJSON_IsArray(arr)) return -4;
+
+    out_size->value = cJSON_GetArraySize(arr);
+    return 0;
 }
 
-cJSON* JsonHelper::getArrayItem(cJSON* arr, int index) {
-    if (!arr || !cJSON_IsArray(arr)) {
-        return nullptr;
-    }
-    
-    return cJSON_GetArrayItem(arr, index);
+int JsonHelper::GetArrayObjectString(const cJSON* root,
+                                     const char* array_key,
+                                     int index,
+                                     const char* field_key,
+                                     char* out_buf,
+                                     size_t out_len) {
+    if (!root || !array_key || !field_key || !out_buf || out_len == 0) return -1;
+
+    const cJSON* arr = cJSON_GetObjectItem(root, array_key);
+    if (!arr) return -3;
+    if (!cJSON_IsArray(arr)) return -4;
+
+    const cJSON* obj = cJSON_GetArrayItem(arr, index);
+    if (!obj) return -3;
+    if (!cJSON_IsObject(obj)) return -4;
+
+    return GetString(obj, field_key, out_buf, out_len);
 }
 
-cJSON* JsonHelper::getObjectItem(cJSON* obj, const char* key) {
-    if (!obj || !key) {
-        return nullptr;
-    }
-    
-    return cJSON_GetObjectItem(obj, key);
+int JsonHelper::GetArrayObjectInt(const cJSON* root,
+                                  const char* array_key,
+                                  int index,
+                                  const char* field_key,
+                                  ktv::utils::OutInt* out_value) {
+    if (!root || !array_key || !field_key || !out_value) return -1;
+
+    const cJSON* arr = cJSON_GetObjectItem(root, array_key);
+    if (!arr) return -3;
+    if (!cJSON_IsArray(arr)) return -4;
+
+    const cJSON* obj = cJSON_GetArrayItem(arr, index);
+    if (!obj) return -3;
+    if (!cJSON_IsObject(obj)) return -4;
+
+    return GetInt(obj, field_key, out_value);
 }
 
-bool JsonHelper::isArray(cJSON* item) {
-    return item && cJSON_IsArray(item);
+int JsonHelper::GetArrayObjectBool(const cJSON* root,
+                                   const char* array_key,
+                                   int index,
+                                   const char* field_key,
+                                   ktv::utils::OutBool* out_value) {
+    if (!root || !array_key || !field_key || !out_value) return -1;
+
+    const cJSON* arr = cJSON_GetObjectItem(root, array_key);
+    if (!arr) return -3;
+    if (!cJSON_IsArray(arr)) return -4;
+
+    const cJSON* obj = cJSON_GetArrayItem(arr, index);
+    if (!obj) return -3;
+    if (!cJSON_IsObject(obj)) return -4;
+
+    return GetBool(obj, field_key, out_value);
 }
 
-bool JsonHelper::isObject(cJSON* item) {
-    return item && cJSON_IsObject(item);
+int JsonHelper::GetRootArrayObjectString(const cJSON* root_array,
+                                         int index,
+                                         const char* field_key,
+                                         char* out_buf,
+                                         size_t out_len) {
+    if (!root_array || !field_key || !out_buf || out_len == 0) return -1;
+    if (!cJSON_IsArray(root_array)) return -4;
+
+    const cJSON* obj = cJSON_GetArrayItem(root_array, index);
+    if (!obj) return -3;
+    if (!cJSON_IsObject(obj)) return -4;
+
+    return GetString(obj, field_key, out_buf, out_len);
 }
 
-bool JsonHelper::isString(cJSON* item) {
-    return item && cJSON_IsString(item);
+int JsonHelper::GetRootArrayObjectInt(const cJSON* root_array,
+                                      int index,
+                                      const char* field_key,
+                                      ktv::utils::OutInt* out_value) {
+    if (!root_array || !field_key || !out_value) return -1;
+    if (!cJSON_IsArray(root_array)) return -4;
+
+    const cJSON* obj = cJSON_GetArrayItem(root_array, index);
+    if (!obj) return -3;
+    if (!cJSON_IsObject(obj)) return -4;
+
+    return GetInt(obj, field_key, out_value);
 }
 
-bool JsonHelper::isNumber(cJSON* item) {
-    return item && cJSON_IsNumber(item);
+int JsonHelper::GetRootArrayObjectBool(const cJSON* root_array,
+                                       int index,
+                                       const char* field_key,
+                                       ktv::utils::OutBool* out_value) {
+    if (!root_array || !field_key || !out_value) return -1;
+    if (!cJSON_IsArray(root_array)) return -4;
+
+    const cJSON* obj = cJSON_GetArrayItem(root_array, index);
+    if (!obj) return -3;
+    if (!cJSON_IsObject(obj)) return -4;
+
+    return GetBool(obj, field_key, out_value);
 }
 
 

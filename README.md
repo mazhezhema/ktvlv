@@ -140,19 +140,17 @@ make
 make install
 ```
 
-### 依赖库
+### 依赖库（MVP）
 
 **系统库**（Tina Linux SDK 已包含）：
 - TPlayer - 全志官方播放器
 - libcurl - HTTP 客户端
-- OpenSSL/mbedTLS - TLS 支持（WSS）
 
-**第三方库**（FetchContent 自动获取）：
+**第三方库**（按需集成）：
 - LVGL 8.3.11 - UI 框架
 - cJSON - JSON 解析
 - syslog - 日志系统
-- inih - 配置解析
-- libwebsockets - WebSocket 客户端
+- inih - 配置解析（可选）
 
 ---
 
@@ -250,7 +248,8 @@ void PagePlayer::onPlayerEvent(const PlayerEvent& ev) {
 - **[F133第一期需求文档](docs/F133第一期需求文档.md)** - 需求和功能范围
 - **[KTVLV技术基座](docs/KTVLV技术基座（F133_Tina）.md)** - 技术基座详细说明
 - **[并发架构总结构](docs/architecture/并发架构总结构（最终版）.md)** - 并发架构标准答案
-- **[开源库清单](docs/开源库清单.md)** - 使用的开源库清单
+- **[开源库选型指南](docs/guides/开源库选型指南.md)** - 新架构·去水分版库清单（定版）
+- **[工程规范与避坑指南（定版）](docs/guides/工程规范与避坑指南（定版）.md)** - 项目级硬规范（照做就不会出大事故）
 - **[F133平台库清单](docs/F133平台库清单.md)** - F133平台库清单
 - **[Cursor实现提示模板](docs/Cursor实现提示模板.md)** - Cursor实现指导
 

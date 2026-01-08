@@ -32,6 +32,12 @@ LogUploadService::~LogUploadService() {
 }
 
 void LogUploadService::start() {
+#if !defined(KTV_ENABLE_LOG_UPLOAD) || (KTV_ENABLE_LOG_UPLOAD == 0)
+    // MVP 简化架构：只允许 Download Thread + tplayer 内部线程。
+    // LogUpload 属于量产特性：默认关闭，避免引入额外常驻线程。
+    syslog(LOG_WARNING, "[ktv][log] LogUploadService start ignored (disabled in MVP). define KTV_ENABLE_LOG_UPLOAD=1 to enable.");
+    return;
+#endif
     if (running_.exchange(true)) {
         return;  // 已经启动
     }
